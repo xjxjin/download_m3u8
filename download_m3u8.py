@@ -8,26 +8,28 @@ import time
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-#
-# def setup_logger():
-#     """配置日志记录器"""
-#     # 获取当前文件所在目录
-#     current_dir = os.path.dirname(os.path.abspath(__file__))
-#     # 创建日志目录
-#     log_dir = os.path.join(current_dir, 'data/log')
-#     os.makedirs(log_dir, exist_ok=True)
-#
-#     # 设置日志文件路径
-#     log_file = os.path.join(log_dir, 'alist_sync.log')
-#
-#     # 创建 TimedRotatingFileHandler
-#     file_handler = TimedRotatingFileHandler(
-#         filename=log_file,
-#         when='midnight',
-#         interval=1,
-#         backupCount=7,
-#         encoding='utf-8'
-#     )
+output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
+
+
+def setup_logger():
+    """配置日志记录器"""
+    # 获取当前文件所在目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 创建日志目录
+    log_dir = os.path.join(current_dir, f'{output_dir}/log')
+    os.makedirs(log_dir, exist_ok=True)
+
+    # 设置日志文件路径
+    log_file = os.path.join(log_dir, 'alist_sync.log')
+
+    # 创建 TimedRotatingFileHandler
+    file_handler = TimedRotatingFileHandler(
+        filename=log_file,
+        when='midnight',
+        interval=1,
+        backupCount=7,
+        encoding='utf-8'
+    )
 #
 #     # 创建控制台处理器
 #     console_handler = logging.StreamHandler()
@@ -222,7 +224,6 @@ if __name__ == "__main__":
     # 从环境变量获取 m3u8_url 和 output_dir
     m3u8_url = os.getenv("M3U8_URL")
     # m3u8_url="https://ib.dfgyu.cn/resource/012025/OHm9NdIXrTn7wrkjtwEe4WQd4mdOF0VI8MTL.m3u8"
-    output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
     # # output_file = "merged_video.mp4"
     nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     #
