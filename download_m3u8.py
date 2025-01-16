@@ -231,9 +231,9 @@ if __name__ == "__main__":
     #     print("请设置环境变量 M3U8_URL")
     #     sys.exit(1)
     # segment_path = f"{output_dir}/tmp"
-    logger.info(f"output_dir: {output_dir}")
+    print(f"output_dir: {output_dir}")
     # logger.info(f"segment_path: {segment_path}")
-    logger.info(f"output_file: {output_file}")
+    print(f"output_file: {output_file}")
     #
     # m3u8_content = get_m3u8_content(m3u8_url)
     # if m3u8_content:
