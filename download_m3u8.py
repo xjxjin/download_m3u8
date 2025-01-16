@@ -85,7 +85,7 @@ if __name__ == "__main__":
     if not m3u8_url:
         print("请设置环境变量 M3U8_URL")
         sys.exit(1)
-    segment_path = f"{output_dir}/tmp/{nowtime}"
+    segment_path = f"{output_dir}/tmp"
     m3u8_content = get_m3u8_content(m3u8_url)
     if m3u8_content:
         segments = parse_m3u8(m3u8_content, m3u8_url)
