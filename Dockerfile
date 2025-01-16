@@ -8,7 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y ffmpeg
 
 # 复制当前目录下的所有文件到工作目录
-COPY. /app
+COPY . /app
 
 # 安装 Python 依赖
 RUN pip install requests
