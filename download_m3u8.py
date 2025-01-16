@@ -68,11 +68,11 @@ def merge_segments(output_dir, segment_path, output_file):
         print(f"合并完成，输出文件: {output_file}")
     except subprocess.CalledProcessError as e:
         print(f"合并失败: {e}")
-    finally:
-        if os.path.exists(segment_list):
-            os.remove(segment_list)
-        if os.path.exists(segment_path):
-            os.remove(segment_path)
+    # finally:
+        # if os.path.exists(segment_list):
+        #     os.remove(segment_list)
+        # if os.path.exists(segment_path):
+        #     os.remove(segment_path)
 
 
 if __name__ == "__main__":
