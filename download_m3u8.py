@@ -30,26 +30,26 @@ def setup_logger():
         backupCount=7,
         encoding='utf-8'
     )
-#
-#     # 创建控制台处理器
-#     console_handler = logging.StreamHandler()
-#
-#     # 设置日志格式
-#     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-#     file_handler.setFormatter(formatter)
-#     console_handler.setFormatter(formatter)
-#
-#     # 配置根日志记录器
-#     logger = logging.getLogger()
-#     logger.setLevel(logging.INFO)
-#
-#     # 避免重复添加处理器
-#     if not logger.handlers:
-#         logger.addHandler(file_handler)
-#         logger.addHandler(console_handler)
-#
-#     return logger
-#
+
+    # 创建控制台处理器
+    console_handler = logging.StreamHandler()
+
+    # 设置日志格式
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # 配置根日志记录器
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # 避免重复添加处理器
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+    return logger
+
 #
 # # 初始化日志记录器
 # logger = setup_logger()
