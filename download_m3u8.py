@@ -4,8 +4,54 @@ import os
 from urllib.parse import urljoin
 import sys
 import datetime
+import time
+import logging
+from logging.handlers import TimedRotatingFileHandler
 
-nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
+def setup_logger():
+    """配置日志记录器"""
+    # 获取当前文件所在目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 创建日志目录
+    log_dir = os.path.join(current_dir, 'data/log')
+    os.makedirs(log_dir, exist_ok=True)
+
+    # 设置日志文件路径
+    log_file = os.path.join(log_dir, 'alist_sync.log')
+
+    # 创建 TimedRotatingFileHandler
+    file_handler = TimedRotatingFileHandler(
+        filename=log_file,
+        when='midnight',
+        interval=1,
+        backupCount=7,
+        encoding='utf-8'
+    )
+
+    # 创建控制台处理器
+    console_handler = logging.StreamHandler()
+
+    # 设置日志格式
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # 配置根日志记录器
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # 避免重复添加处理器
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+    return logger
+
+
+# 初始化日志记录器
+logger = setup_logger()
+
 
 def get_m3u8_content(url):
     headers = {
@@ -16,7 +62,7 @@ def get_m3u8_content(url):
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:
-        print(f"获取M3U8文件失败: {e}")
+        logger.error(f"获取M3U8文件失败: {e}")
         return None
 
 
@@ -51,9 +97,10 @@ def download_segments(segments, segment_path):
                 response.raise_for_status()
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            print(f"下载片段 {i + 1} 完成: {segment_url}")
+            logger.info(f"下载片段 {i + 1} 完成: {segment_url}")
         except requests.RequestException as e:
-            print(f"下载片段 {i + 1} 失败: {e}")
+            logger.error(f"下载片段 {i + 1} 失败: {e}")
+            # print(f"下载片段 {i + 1} 失败: {e}")
 
 
 def merge_segments(output_dir, segment_path, output_file):
@@ -66,14 +113,14 @@ def merge_segments(output_dir, segment_path, output_file):
     try:
         subprocess.run(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', segment_list,
                         '-c', 'copy', f"{output_dir}/{output_file}"], check=True)
-        print(f"合并完成，输出文件: {output_file}")
+        logger.info(f"合并完成，输出文件: {output_file}")
     except subprocess.CalledProcessError as e:
-        print(f"合并失败: {e}")
+        logger.error(f"合并失败: {e}")
     # finally:
-        # if os.path.exists(segment_list):
-        #     os.remove(segment_list)
-        # if os.path.exists(segment_path):
-        #     os.remove(segment_path)
+    # if os.path.exists(segment_list):
+    #     os.remove(segment_list)
+    # if os.path.exists(segment_path):
+    #     os.remove(segment_path)
 
 
 if __name__ == "__main__":
@@ -81,13 +128,20 @@ if __name__ == "__main__":
     m3u8_url = os.getenv("M3U8_URL")
     output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
     # output_file = "merged_video.mp4"
+    nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
     output_file = f"merged_video_{nowtime}.mp4"
     if not m3u8_url:
         print("请设置环境变量 M3U8_URL")
         sys.exit(1)
     segment_path = f"{output_dir}/tmp"
+    logger.info(f"output_dir: {output_dir}")
+    logger.info(f"segment_path: {segment_path}")
+    logger.info(f"output_file: {output_file}")
+
     m3u8_content = get_m3u8_content(m3u8_url)
     if m3u8_content:
         segments = parse_m3u8(m3u8_content, m3u8_url)
         download_segments(segments, segment_path)
+        time.sleep(10)
         merge_segments(output_dir, segment_path, output_file)
