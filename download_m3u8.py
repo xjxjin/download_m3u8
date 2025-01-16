@@ -5,8 +5,8 @@ import os
 # import sys
 import datetime
 import time
-# import logging
-# from logging.handlers import TimedRotatingFileHandler
+import logging
+from logging.handlers import TimedRotatingFileHandler
 
 #
 # def setup_logger():
@@ -211,11 +211,11 @@ def execute_ffmpeg(input_url, output_file):
     try:
         # 执行 ffmpeg 命令
         subprocess.run(command, check=True)
-        print(f"成功将 {input_url} 转换为 {output_file}")
+        logger.info(f"成功将 {input_url} 转换为 {output_file}")
     except subprocess.CalledProcessError as e:
-        print(f"执行 ffmpeg 命令时出错: {e}")
+        logger.error(f"执行 ffmpeg 命令时出错: {e}")
     except Exception as e:
-        print(f"发生了意外错误: {e}")
+        logger.error(f"发生了意外错误: {e}")
 
 
 if __name__ == "__main__":
@@ -231,9 +231,9 @@ if __name__ == "__main__":
     #     print("请设置环境变量 M3U8_URL")
     #     sys.exit(1)
     # segment_path = f"{output_dir}/tmp"
-    print(f"output_dir: {output_dir}")
+    logger.info(f"output_dir: {output_dir}")
     # logger.info(f"segment_path: {segment_path}")
-    print(f"output_file: {output_file}")
+    logger.info(f"output_file: {output_file}")
     #
     # m3u8_content = get_m3u8_content(m3u8_url)
     # if m3u8_content:
