@@ -222,18 +222,18 @@ if __name__ == "__main__":
     # 从环境变量获取 m3u8_url 和 output_dir
     m3u8_url = os.getenv("M3U8_URL")
     # m3u8_url="https://ib.dfgyu.cn/resource/012025/OHm9NdIXrTn7wrkjtwEe4WQd4mdOF0VI8MTL.m3u8"
-    # output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
+    output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
     # # output_file = "merged_video.mp4"
     nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     #
-    output_file = f"merged_video_{nowtime}.mp4"
+    output_file = f"{output_dir}/merged_video_{nowtime}.mp4"
     # if not m3u8_url:
     #     print("请设置环境变量 M3U8_URL")
     #     sys.exit(1)
     # segment_path = f"{output_dir}/tmp"
-    # logger.info(f"output_dir: {output_dir}")
+    logger.info(f"output_dir: {output_dir}")
     # logger.info(f"segment_path: {segment_path}")
-    # logger.info(f"output_file: {output_file}")
+    logger.info(f"output_file: {output_file}")
     #
     # m3u8_content = get_m3u8_content(m3u8_url)
     # if m3u8_content:
