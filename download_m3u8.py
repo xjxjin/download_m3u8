@@ -50,10 +50,10 @@ def setup_logger():
 
     return logger
 
-#
-# # 初始化日志记录器
-# logger = setup_logger()
-#
+
+# 初始化日志记录器
+logger = setup_logger()
+
 #
 # def get_m3u8_content(url):
 #     headers = {
