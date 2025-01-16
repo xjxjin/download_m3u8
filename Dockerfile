@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y ffmpeg
 COPY . /app
 
 # 安装 Python 依赖
-RUN pip install requests
+RUN pip install requests,logging
 
 # 运行 Python 脚本
 CMD ["python", "download_m3u8.py"]
