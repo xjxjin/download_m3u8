@@ -102,6 +102,31 @@ def download_segments123(segments, segment_path):
             logger.error(f"下载片段 {i + 1} 失败: {e}")
             # print(f"下载片段 {i + 1} 失败: {e}")
 
+def download_segments234(segments, segment_path):
+    if not os.path.exists(segment_path):
+        os.makedirs(segment_path)
+    for i, segment_url in enumerate(segments):
+        segment_file = os.path.join(segment_path, f"segment_{i}.ts")
+        try:
+            headers = {
+                'User - Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+            }
+            response = requests.get(segment_url, stream = True, headers = headers)
+            response.raise_for_status()
+            total_size = int(response.headers.get('Content - Length', 0))
+            downloaded_size = 0
+            with open(segment_file, 'wb') as f:
+                for chunk in response.iter_content(chunk_size = 8192):
+                    f.write(chunk)
+                    downloaded_size += len(chunk)
+            if total_size!= 0 and downloaded_size!= total_size:
+                logger.error(f"下载片段 {i + 1} 不完整: {segment_url}，预期大小: {total_size}，实际下载大小: {downloaded_size}")
+            else:
+                logger.info(f"下载片段 {i + 1} 完成: {segment_url}")
+        except requests.RequestException as e:
+            logger.error(f"下载片段 {i + 1} 失败: {e}")
+
+
 def download_segments(segments, segment_path):
     if not os.path.exists(segment_path):
         os.makedirs(segment_path)
@@ -129,7 +154,7 @@ def download_segments(segments, segment_path):
 
 
 
-def merge_segments(output_dir, segment_path, output_file):
+def merge_segments123(output_dir, segment_path, output_file):
     segment_files = [os.path.join(segment_path, f) for f in sorted(os.listdir(segment_path)) if
                      f.endswith('.ts')]
     segment_list = f'{segment_path}/segment_list.txt'
@@ -143,12 +168,35 @@ def merge_segments(output_dir, segment_path, output_file):
         logger.info(f"合并完成，输出文件: {output_file}")
     except subprocess.CalledProcessError as e:
         logger.error(f"合并失败: {e}")
-        logger.error(f"ffmpeg 命令输出: {e.stderr.decode()}")
+        if e.stderr:
+            logger.error(f"ffmpeg 命令输出: {e.stderr.decode()}")
+        else:
+            logger.error("ffmpeg 没有标准错误输出")
     # finally:
     # if os.path.exists(segment_list):
     #     os.remove(segment_list)
     # if os.path.exists(segment_path):
     #     os.remove(segment_path)
+
+
+def merge_segments(output_dir, segment_path, output_file):
+    segment_files = [os.path.join(segment_path, f) for f in sorted(os.listdir(segment_path)) if
+                     f.endswith('.ts')]
+    segment_list = os.path.join(segment_path, "segment_list.txt")
+    with open(segment_list, 'w') as f:
+        for segment_file in segment_files:
+            f.write(f"file '{segment_file}'\n")
+    try:
+        logging.info(f"尝试合并文件，输入文件列表: {segment_files}")
+        subprocess.run(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', segment_list,
+                        '-c', 'copy', os.path.join(output_dir, output_file)], check = True)
+        logger.info(f"合并完成，输出文件: {output_file}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"合并失败: {e}")
+        if e.stderr:
+            logger.error(f"ffmpeg 命令输出: {e.stderr.decode()}")
+        else:
+            logger.error("ffmpeg 没有标准错误输出")
 
 
 if __name__ == "__main__":
