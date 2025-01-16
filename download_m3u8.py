@@ -80,12 +80,12 @@ if __name__ == "__main__":
     m3u8_url = os.getenv("M3U8_URL")
     output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
     # output_file = "merged_video.mp4"
-    now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    output_file = f"merged_video_{now}.mp4"
+    nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    output_file = f"merged_video_{nowtime}.mp4"
     if not m3u8_url:
         print("请设置环境变量 M3U8_URL")
         sys.exit(1)
-    segment_path = f"{output_dir}/tmp/{now}"
+    segment_path = f"{output_dir}/tmp/{nowtime}"
     m3u8_content = get_m3u8_content(m3u8_url)
     if m3u8_content:
         segments = parse_m3u8(m3u8_content, m3u8_url)
