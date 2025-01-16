@@ -221,3 +221,6 @@ if __name__ == "__main__":
         download_segments(segments, segment_path)
         time.sleep(10)
         merge_segments(output_dir, segment_path, output_file)
+
+    time.sleep(10000)
+
