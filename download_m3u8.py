@@ -3,7 +3,7 @@ import subprocess
 import os
 from urllib.parse import urljoin
 import sys
-
+import datetime
 
 def get_m3u8_content(url):
     headers = {
@@ -75,8 +75,9 @@ if __name__ == "__main__":
     # 从环境变量获取 m3u8_url 和 output_dir
     m3u8_url = os.getenv("M3U8_URL")
     output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
-    output_file = "merged_video.mp4"
-
+    # output_file = "merged_video.mp4"
+    now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    output_file = f"merged_video_{now}.mp4"
     if not m3u8_url:
         print("请设置环境变量 M3U8_URL")
         sys.exit(1)
