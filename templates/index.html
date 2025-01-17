@@ -170,6 +170,9 @@
                 if (data.success) {
                     document.getElementById('m3u8-url').value = data.m3u8_url;
                     document.getElementById('video-title').value = data.video_title;
+                    
+                    // 自动触发立即执行按钮
+                    execute();
                 } else {
                     alert('获取M3U8 URL失败: ' + data.error);
                 }
