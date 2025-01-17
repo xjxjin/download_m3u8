@@ -4,6 +4,8 @@ import sys
 import datetime
 import logging
 from logging.handlers import TimedRotatingFileHandler
+import requests
+from urllib.parse import urljoin
 
 # 设置默认输出目录
 output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
@@ -55,38 +57,47 @@ def setup_logger():
 logger = setup_logger()
 
 
+def get_m3u8_content(url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+    }
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as e:
+        print(f"获取M3U8文件失败: {e}")
+        return None
+
+
+def parse_m3u8(content, base_url):
+    lines = content.splitlines()
+    segments = []
+    for line in lines:
+        if line.startswith('#EXT-X-STREAM-INF'):
+            next_line = next((l for l in lines if l), None)
+            if next_line:
+                new_url = urljoin(base_url, next_line)
+                new_content = get_m3u8_content(new_url)
+                if new_content:
+                    segments.extend(parse_m3u8(new_content, new_url))
+        elif not line.startswith('#'):
+            segment_url = urljoin(base_url, line)
+            segments.append(segment_url)
+    return segments
+
+
 def get_total_segments(m3u8_url):
     """获取m3u8文件中的总片段数，包括处理嵌套的m3u8文件"""
     try:
-        from m3u8_parser import M3U8Parser
-        parser = M3U8Parser()
-        parser.load(m3u8_url)
-        playlist = parser.get_playlist()
-        
-        # 如果是主播放列表（包含子播放列表）
-        if playlist.is_endlist and playlist.playlists:
-            logger.info("检测到主播放列表，获取子播放列表")
-            # 获取第一个子播放列表的URI
-            sub_playlist_uri = playlist.playlists[0].uri
-            
-            # 如果子播放列表URI是相对路径，需要构建完整URL
-            if not sub_playlist_uri.startswith('http'):
-                from urllib.parse import urljoin
-                sub_playlist_uri = urljoin(m3u8_url, sub_playlist_uri)
-            
-            logger.info(f"加载子播放列表: {sub_playlist_uri}")
-            # 递归获取子播放列表的片段数
-            return get_total_segments(sub_playlist_uri)
-        
-        # 如果是包含具体片段的播放列表
-        if playlist.segments:
-            segment_count = len(playlist.segments)
-            logger.info(f"找到 {segment_count} 个媒体片段")
-            return segment_count
-            
-        logger.warning("未找到媒体片段")
-        return 0
-        
+        segments = []
+        m3u8_content = get_m3u8_content(m3u8_url)
+        if m3u8_content:
+            segments = parse_m3u8(m3u8_content, m3u8_url)
+            # download_segments(segments, segment_path)
+            # merge_segments(output_dir, segment_path, output_file)
+        return len(segments)
+
     except Exception as e:
         logger.error(f"获取片段数失败: {e}")
         import traceback
