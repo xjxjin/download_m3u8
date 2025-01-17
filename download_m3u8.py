@@ -176,6 +176,7 @@ def execute_ffmpeg(m3u8_url, output_file):
             logger.info(f"下载完成: {output_file}")
             logger.info(f"总共处理片段: {frame_count}")
             update_progress(100, frame_count, total_segments, status='completed')
+            # 不在这里删除进度文件，让前端确认后再删除
             return True
         else:
             logger.error("下载失败")

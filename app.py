@@ -302,9 +302,21 @@ def download_worker(m3u8_url, video_title):
         logger.info(f"视频标题: {video_title}")
         
         # 更新下载状态
-        download_status['status'] = 'downloading'
-        download_status['progress'] = 0
-        download_status['error'] = None
+        download_status.update({
+            'status': 'downloading',
+            'progress': 0,
+            'current_segments': 0,
+            'total_segments': 0,
+            'error': None
+        })
+        
+        # 删除可能存在的旧进度文件
+        progress_file = os.path.join(output_dir, 'download_progress.json')
+        if os.path.exists(progress_file):
+            try:
+                os.remove(progress_file)
+            except:
+                pass
         
         # 设置环境变量
         env = os.environ.copy()
@@ -320,9 +332,6 @@ def download_worker(m3u8_url, video_title):
         )
         
         download_status['process'] = process
-        
-        # 不再等待进程完成，让它在后台运行
-        # stdout, stderr = process.communicate()
         
     except Exception as e:
         download_status['status'] = 'failed'
@@ -520,6 +529,17 @@ def check_progress():
                     'status': 'failed',
                     'error': "下载进程异常退出"
                 })
+            
+            # 如果进程正在运行但还没有进度文件，返回等待状态
+            if returncode is None and not os.path.exists(progress_file):
+                return jsonify({
+                    'success': True,
+                    'progress': 0,
+                    'current_segments': 0,
+                    'total_segments': 0,
+                    'status': 'downloading',
+                    'error': None
+                })
         
         # 读取进度文件
         if os.path.exists(progress_file):
@@ -527,21 +547,52 @@ def check_progress():
                 with open(progress_file, 'r') as f:
                     progress_data = json.load(f)
                     
+                    # 检查进度数据的有效性
+                    if not isinstance(progress_data, dict):
+                        raise ValueError("Invalid progress data format")
+                    
                     # 更新全局状态
                     download_status.update(progress_data)
                     
-                    # 如果状态为完成或失败，清理进程
-                    if progress_data['status'] in ['completed', 'failed']:
+                    # 如果状态为完成，添加一个新的状态 'confirmed'
+                    if progress_data['status'] == 'completed':
+                        download_status['status'] = 'confirmed'
                         if download_status['process']:
                             download_status['process'] = None
-                        
                         # 删除进度文件
                         try:
                             os.remove(progress_file)
                         except:
                             pass
+                    elif progress_data['status'] == 'failed':
+                        if download_status['process']:
+                            download_status['process'] = None
+                        # 删除进度文件
+                        try:
+                            os.remove(progress_file)
+                        except:
+                            pass
+                            
             except Exception as e:
                 logger.error(f"读取进度文件失败: {str(e)}")
+                if download_status['process'] and download_status['process'].poll() is None:
+                    return jsonify({
+                        'success': True,
+                        'progress': 0,
+                        'current_segments': 0,
+                        'total_segments': 0,
+                        'status': 'downloading',
+                        'error': None
+                    })
+        elif download_status['status'] == 'downloading':
+            return jsonify({
+                'success': True,
+                'progress': 0,
+                'current_segments': 0,
+                'total_segments': 0,
+                'status': 'downloading',
+                'error': None
+            })
         
         # 返回当前状态
         return jsonify({
