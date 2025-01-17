@@ -178,7 +178,7 @@
             }
         }
 
-        // 添加进度检查函数
+        // 修改进度检查函数
         async function checkProgress() {
             try {
                 const response = await fetch('/check_progress');
@@ -200,18 +200,19 @@
                         segmentsText.textContent = `${data.current_segments}/${data.total_segments} 片段`;
                     }
 
-                    // 如果下载完成
-                    if (data.status === 'completed') {
-                        clearInterval(window.progressInterval);
-                        document.getElementById('progress').style.display = 'none';
-                        alert('下载完成！');
-                        listFiles();  // 刷新文件列表
-                    }
-                    // 如果下载失败
-                    else if (data.status === 'failed') {
-                        clearInterval(window.progressInterval);
-                        document.getElementById('progress').style.display = 'none';
-                        alert('下载失败: ' + data.error);
+                    // 根据状态处理
+                    switch(data.status) {
+                        case 'completed':
+                            clearInterval(window.progressInterval);
+                            document.getElementById('progress').style.display = 'none';
+                            alert('下载完成！');
+                            listFiles();  // 刷新文件列表
+                            break;
+                        case 'failed':
+                            clearInterval(window.progressInterval);
+                            document.getElementById('progress').style.display = 'none';
+                            alert('下载失败: ' + data.error);
+                            break;
                     }
                 }
             } catch (error) {

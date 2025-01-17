@@ -11,6 +11,8 @@ import time
 import subprocess
 import shutil
 import datetime
+import threading
+from queue import Queue
 
 # import logging
 # from logging.handlers import TimedRotatingFileHandler
@@ -24,13 +26,14 @@ from download_m3u8 import output_dir, setup_logger
 # 使用相同的日志配置
 logger = setup_logger()
 
-# 添加全局变量来存储下载进度
-download_progress = {
+# 修改全局变量来存储下载状态
+download_status = {
     'progress': 0,
     'current_segments': 0,
     'total_segments': 0,
     'status': 'idle',  # idle, downloading, completed, failed
-    'error': None
+    'error': None,
+    'process': None
 }
 
 
@@ -293,6 +296,50 @@ def get_m3u8():
         return jsonify({'success': False, 'error': f'获取M3U8失败: {error_msg}'})
 
 
+def download_worker(m3u8_url, video_title):
+    """异步下载工作函数"""
+    try:
+        logger.info(f"开始异步下载M3U8: {m3u8_url}")
+        logger.info(f"视频标题: {video_title}")
+        
+        # 更新下载状态
+        download_status['status'] = 'downloading'
+        download_status['progress'] = 0
+        download_status['error'] = None
+        
+        # 设置环境变量
+        env = os.environ.copy()
+        env['M3U8_URL'] = m3u8_url
+        env['VIDEO_TITLE'] = video_title
+        
+        # 启动下载进程
+        process = subprocess.Popen(
+            ['python', 'download_m3u8.py'],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        download_status['process'] = process
+        
+        # 等待进程完成
+        stdout, stderr = process.communicate()
+        
+        if process.returncode == 0:
+            download_status['status'] = 'completed'
+            download_status['progress'] = 100
+            logger.info("下载完成")
+        else:
+            download_status['status'] = 'failed'
+            download_status['error'] = stderr.decode('utf-8')
+            logger.error(f"下载失败: {stderr.decode('utf-8')}")
+            
+    except Exception as e:
+        download_status['status'] = 'failed'
+        download_status['error'] = str(e)
+        logger.error(f"下载异常: {str(e)}")
+
+
 @app.route('/execute', methods=['POST'])
 def execute():
     m3u8_url = request.json.get('m3u8_url')
@@ -303,18 +350,29 @@ def execute():
         return jsonify({'success': False, 'error': 'M3U8 URL is required'})
 
     try:
-        logger.info(f"开始下载M3U8: {m3u8_url}")
-        logger.info(f"视频标题: {video_title}")
-
-        # 设置环境变量
-        os.environ['M3U8_URL'] = m3u8_url
-        os.environ['VIDEO_TITLE'] = video_title
-
-        subprocess.run(['python', 'download_m3u8.py'], check=True)
-        logger.info("下载完成")
+        # 如果已经有下载任务在进行中，返回错误
+        if download_status['status'] == 'downloading':
+            return jsonify({'success': False, 'error': '已有下载任务在进行中'})
+        
+        # 重置下载状态
+        download_status['progress'] = 0
+        download_status['current_segments'] = 0
+        download_status['total_segments'] = 0
+        download_status['status'] = 'idle'
+        download_status['error'] = None
+        
+        # 创建新线程执行下载
+        thread = threading.Thread(
+            target=download_worker,
+            args=(m3u8_url, video_title)
+        )
+        thread.daemon = True
+        thread.start()
+        
         return jsonify({'success': True})
+        
     except Exception as e:
-        logger.error(f"下载失败: {str(e)}")
+        logger.error(f"启动下载失败: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -454,14 +512,40 @@ def delete_file():
 
 @app.route('/check_progress')
 def check_progress():
-    return jsonify({
-        'success': True,
-        'progress': download_progress['progress'],
-        'current_segments': download_progress['current_segments'],
-        'total_segments': download_progress['total_segments'],
-        'status': download_progress['status'],
-        'error': download_progress['error']
-    })
+    """检查下载进度"""
+    try:
+        # 如果进程存在且正在运行，尝试更新进度
+        if (download_status['status'] == 'downloading' and 
+            download_status['process'] and 
+            download_status['process'].poll() is None):
+            
+            # 这里可以添加从 download_m3u8.py 获取实际进度的逻辑
+            # 目前仅返回状态
+            return jsonify({
+                'success': True,
+                'progress': download_status['progress'],
+                'current_segments': download_status['current_segments'],
+                'total_segments': download_status['total_segments'],
+                'status': download_status['status'],
+                'error': download_status['error']
+            })
+            
+        # 返回当前状态
+        return jsonify({
+            'success': True,
+            'progress': download_status['progress'],
+            'current_segments': download_status['current_segments'],
+            'total_segments': download_status['total_segments'],
+            'status': download_status['status'],
+            'error': download_status['error']
+        })
+        
+    except Exception as e:
+        logger.error(f"检查进度失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 
 if __name__ == '__main__':
