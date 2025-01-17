@@ -154,6 +154,7 @@ def execute_ffmpeg(input_url, output_file):
                         logger.info(f"stdout: {line.strip()}")
                         if "hls @ " in line:
                             processed_frames += 1
+                            logger.info(f"总进度为:{total_segments}   当前进度为:{processed_frames}")
                             # 计算进度百分比
                             progress = (processed_frames / total_segments * 100) if total_segments > 0 else 0
                             # 写入进度到文件
