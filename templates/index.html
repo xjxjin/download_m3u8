@@ -214,6 +214,13 @@
                                 alert('下载完成！');
                                 listFiles();  // 刷新文件列表
                             }, 1000);
+                            case 'confirmed':
+                            clearInterval(window.progressInterval);
+                            setTimeout(() => {
+                                progressDiv.style.display = 'none';
+                                alert('下载完成！');
+                                listFiles();  // 刷新文件列表
+                            }, 1000);
                             break;
                         case 'failed':
                             clearInterval(window.progressInterval);
