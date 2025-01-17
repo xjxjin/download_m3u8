@@ -58,8 +58,10 @@ logger = setup_logger()
 def get_total_segments(m3u8_url):
     """获取m3u8文件中的总片段数，包括处理嵌套的m3u8文件"""
     try:
-        import m3u8
-        playlist = m3u8.load(m3u8_url)
+        from m3u8_parser import M3U8Parser
+        parser = M3U8Parser()
+        parser.load(m3u8_url)
+        playlist = parser.get_playlist()
         
         # 如果是主播放列表（包含子播放列表）
         if playlist.is_endlist and playlist.playlists:

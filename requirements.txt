@@ -1,0 +1,5 @@
+flask
+requests
+selenium>=4.10.0
+webdriver-manager>=4.0.1
+m3u8-parser 
