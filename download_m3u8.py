@@ -1,61 +1,44 @@
-import subprocess
 import os
 import sys
+import subprocess
 import datetime
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import requests
+import re
+from logging.handlers import TimedRotatingFileHandler
 from urllib.parse import urljoin
 
 # 设置默认输出目录
 output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
+
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)
+os.makedirs(f"{output_dir}/videos", exist_ok=True)
 
-# 定义全局变量用于跟踪当前进程
-current_process = None
 
 def setup_logger():
     """配置日志记录器"""
-    # 获取当前文件所在目录
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # 创建日志目录
-    log_dir = os.path.join(current_dir, f'{output_dir}/log')
-    os.makedirs(log_dir, exist_ok=True)
-
-    # 设置日志文件路径
-    log_file = os.path.join(log_dir, 'output.log')
-
-    # 创建 TimedRotatingFileHandler
-    file_handler = TimedRotatingFileHandler(
-        filename=log_file,
-        when='midnight',
-        interval=1,
-        backupCount=7,
-        encoding='utf-8'
-    )
-
-    # 创建控制台处理器
-    console_handler = logging.StreamHandler()
-
-    # 设置日志格式
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-
-    # 配置根日志记录器
-    logger = logging.getLogger()
+    logger = logging.getLogger('m3u8_downloader')
     logger.setLevel(logging.INFO)
 
-    # 避免重复添加处理器
-    if not logger.handlers:
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+    # 创建日志目录
+    log_dir = os.path.join(output_dir, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+
+    # 文件处理器
+    log_file = os.path.join(log_dir, 'downloader.log')
+    file_handler = TimedRotatingFileHandler(log_file, when='midnight', interval=1, backupCount=7)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+
+    # 控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logger.addHandler(console_handler)
 
     return logger
 
 
-# 初始化日志记录器
 logger = setup_logger()
 
 
@@ -107,50 +90,70 @@ def get_total_segments(m3u8_url):
         return 0
 
 
-def execute_ffmpeg(input_url, output_file):
-    # 获取总片段数
-    total_segments = get_total_segments(input_url)
-    logger.info(f"总片段数: {total_segments}")
-    
-    # 创建进度文件并设置初始进度
-    progress_file = os.path.join(output_dir, "progress.txt")
-    with open(progress_file, 'w') as f:
-        f.write("0.00")
 
-    # 构建 ffmpeg 命令
-    command = [
-        'ffmpeg',
-        '-i', input_url,
-        '-c', 'copy',
-        output_file
-    ]
-    
+def execute_ffmpeg(m3u8_url, output_file):
+    """使用ffmpeg下载并合并视频片段"""
     try:
-        # 使用 Popen 启动进程，但不等待它完成
+        # 获取总片段数
+        total_segments = get_total_segments(m3u8_url)
+        if total_segments > 0:
+            logger.info(f"预计总片段数: {total_segments}")
+
+        # 准备ffmpeg命令
+        command = [
+            'ffmpeg',
+            '-i', m3u8_url,
+            '-c', 'copy',
+            '-bsf:a', 'aac_adtstoasc',
+            output_file
+        ]
+
+        # 使用subprocess.Popen来实时获取输出
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            bufsize=1,  # 行缓冲
             universal_newlines=True
         )
-        
-        # 将进程对象保存到全局变量，以便其他函数可以访问
-        global current_process
-        current_process = {
-            'process': process,
-            'total_segments': total_segments,
-            'processed_frames': 0,
-            'progress_file': progress_file,
-            'start_time': datetime.datetime.now()
-        }
-        
-        return True
-        
+
+        # 初始化计数器
+        frame_count = 0
+        processed_lines = set()  # 用于存储已处理的行，避免重复计数
+
+        # 实时读取输出
+        while True:
+            line = process.stderr.readline()
+            if not line and process.poll() is not None:
+                break
+
+            if line:
+                logger.info(line)
+                # 检查是否包含frame且该行未被处理过
+                if 'hls @' in line and line not in processed_lines:
+                    frame_count += 1
+                    processed_lines.add(line)
+                    logger.info(f"总片数：{total_segments}  已完成数：{frame_count}")
+
+                    # 如果知道总片段数，计算进度百分比
+                    if total_segments > 0:
+                        progress = min(100, (frame_count / total_segments) * 100)
+                        logger.info(f"下载进度: {progress:.2f}% ({frame_count}/{total_segments})")
+                    else:
+                        logger.info(f"已下载片段: {frame_count}")
+
+        # 等待进程完成
+        process.wait()
+
+        if process.returncode == 0:
+            logger.info(f"下载完成: {output_file}")
+            logger.info(f"总共处理片段: {frame_count}")
+            return True
+        else:
+            logger.error("下载失败")
+            return False
+
     except Exception as e:
-        logger.error(f"发生了意外错误: {e}")
-        if os.path.exists(progress_file):
-            os.remove(progress_file)
+        logger.error(f"执行出错: {str(e)}")
         return False
 
 

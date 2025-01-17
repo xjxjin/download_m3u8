@@ -67,6 +67,22 @@
         .table td a:hover {
             text-decoration: underline;
         }
+        .progress {
+            height: 20px;
+            margin-bottom: 20px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
+        }
+
+        .progress-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            background-color: #007bff;
+        }
     </style>
 </head>
 <body>
@@ -94,9 +110,17 @@
     </div>
 
     <div id="progress" style="display: none;">
-        <p>正在处理中...</p>
+        <div class="progress-info mb-2">
+            <p class="mb-1">正在处理中...</p>
+            <div class="d-flex justify-content-between">
+                <span id="progress-text">0%</span>
+                <span id="segments-text">0/0 片段</span>
+            </div>
+        </div>
         <div class="progress">
-            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            </div>
         </div>
     </div>
 
@@ -154,29 +178,48 @@
             }
         }
 
-        // 更新进度的函数
-        async function updateProgress() {
+        // 添加进度检查函数
+        async function checkProgress() {
             try {
-                const response = await fetch('/get_progress');
+                const response = await fetch('/check_progress');
                 const data = await response.json();
-                
+
                 if (data.success) {
                     const progressBar = document.getElementById('progress-bar');
-                    const progress = data.progress;
+                    const progressText = document.getElementById('progress-text');
+                    const segmentsText = document.getElementById('segments-text');
+
+                    // 更新进度条
+                    const progress = data.progress || 0;
                     progressBar.style.width = `${progress}%`;
                     progressBar.setAttribute('aria-valuenow', progress);
-                    progressBar.textContent = `${progress.toFixed(1)}%`;
-                    
-                    if (progress < 100) {
-                        setTimeout(updateProgress, 1000); // 每秒更新一次进度
+
+                    // 更新文本信息
+                    progressText.textContent = `${progress.toFixed(2)}%`;
+                    if (data.current_segments && data.total_segments) {
+                        segmentsText.textContent = `${data.current_segments}/${data.total_segments} 片段`;
+                    }
+
+                    // 如果下载完成
+                    if (data.status === 'completed') {
+                        clearInterval(window.progressInterval);
+                        document.getElementById('progress').style.display = 'none';
+                        alert('下载完成！');
+                        listFiles();  // 刷新文件列表
+                    }
+                    // 如果下载失败
+                    else if (data.status === 'failed') {
+                        clearInterval(window.progressInterval);
+                        document.getElementById('progress').style.display = 'none';
+                        alert('下载失败: ' + data.error);
                     }
                 }
             } catch (error) {
-                console.error('获取进度失败:', error);
+                console.error('检查进度失败:', error);
             }
         }
 
-        // 执行下载
+        // 修改 execute 函数
         async function execute() {
             const m3u8Url = document.getElementById('m3u8-url').value;
             const videoTitle = document.getElementById('video-title').value || '';
@@ -186,9 +229,14 @@
                 return;
             }
 
-            document.getElementById('progress').style.display = 'block';
-            document.getElementById('progress-bar').style.width = '0%';
-            document.getElementById('progress-bar').textContent = '0%';
+            // 显示进度区域并重置进度条
+            const progressDiv = document.getElementById('progress');
+            const progressBar = document.getElementById('progress-bar');
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', 0);
+            document.getElementById('progress-text').textContent = '0%';
+            document.getElementById('segments-text').textContent = '0/0 片段';
 
             try {
                 const response = await fetch('/execute', {
@@ -202,20 +250,20 @@
                     })
                 });
 
-                // 开始更新进度
-                updateProgress();
-
                 const data = await response.json();
                 if (data.success) {
-                    alert('执行成功');
-                    listFiles();
+                    // 开始定期检查进度
+                    if (window.progressInterval) {
+                        clearInterval(window.progressInterval);
+                    }
+                    window.progressInterval = setInterval(checkProgress, 1000);
                 } else {
+                    progressDiv.style.display = 'none';
                     alert('执行失败: ' + data.error);
                 }
             } catch (error) {
+                progressDiv.style.display = 'none';
                 alert('请求失败: ' + error);
-            } finally {
-                document.getElementById('progress').style.display = 'none';
             }
         }
 
@@ -343,6 +391,13 @@
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
             listFiles();
+        });
+
+        // 页面卸载时清理定时器
+        window.addEventListener('beforeunload', function() {
+            if (window.progressInterval) {
+                clearInterval(window.progressInterval);
+            }
         });
     </script>
 </body>
