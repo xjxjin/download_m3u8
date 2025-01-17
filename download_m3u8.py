@@ -89,7 +89,7 @@ def execute_ffmpeg(input_url, output_file):
             bufsize=1,  # 行缓冲
             universal_newlines=True
         )
-        logger.info(process)
+        # logger.info(process)
         processed_frames = 0
         # 创建进度文件
         progress_file = os.path.join(output_dir, "progress.txt")
@@ -113,7 +113,7 @@ def execute_ffmpeg(input_url, output_file):
                     line = process.stdout.readline()
                     if line:
                         logger.info(f"stdout: {line.strip()}")
-                        if "frame=" in line:
+                        if "hls @ " in line:
                             processed_frames += 1
                             # 计算进度百分比
                             progress = (processed_frames / total_segments * 100) if total_segments > 0 else 0
