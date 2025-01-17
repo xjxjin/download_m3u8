@@ -7,7 +7,6 @@ from logging.handlers import TimedRotatingFileHandler
 
 # 设置默认输出目录
 output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
-
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)
 
@@ -87,9 +86,9 @@ if __name__ == "__main__":
     # 生成输出文件名
     nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     if video_title:
-        output_file = f"{output_dir}/{video_title}_{nowtime}.mp4"
+        output_file = f"{output_dir}/videos/{video_title}_{nowtime}.mp4"
     else:
-        output_file = f"{output_dir}/merged_video_{nowtime}.mp4"
+        output_file = f"{output_dir}/videos/merged_video_{nowtime}.mp4"
     
     logger.info(f"output_dir: {output_dir}")
     logger.info(f"output_file: {output_file}")
