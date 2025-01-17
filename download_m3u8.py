@@ -75,6 +75,7 @@ def execute_ffmpeg(input_url, output_file):
         'ffmpeg',
         '-i', input_url,
         '-c', 'copy',
+        '-progress', 'pipe:1',  # 添加进度输出到 stdout
         output_file
     ]
     
@@ -84,6 +85,7 @@ def execute_ffmpeg(input_url, output_file):
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            bufsize=1,  # 行缓冲
             universal_newlines=True
         )
         
@@ -91,23 +93,53 @@ def execute_ffmpeg(input_url, output_file):
         # 创建进度文件
         progress_file = os.path.join(output_dir, "progress.txt")
         
+        # 使用非阻塞方式读取输出
+        import select
+        
+        # 创建轮询对象
+        poll = select.poll()
+        poll.register(process.stdout, select.POLLIN)
+        poll.register(process.stderr, select.POLLIN)
+        
+        # 设置初始进度
+        with open(progress_file, 'w') as f:
+            f.write("0.00")
+        
         while True:
-            line = process.stderr.readline()
-            if not line and process.poll() is not None:
+            # 检查是否有新的输出
+            for fd, event in poll.poll(100):  # 100ms 超时
+                if fd == process.stdout.fileno():
+                    line = process.stdout.readline()
+                    if line:
+                        logger.info(f"stdout: {line.strip()}")
+                        if "frame=" in line:
+                            processed_frames += 1
+                            # 计算进度百分比
+                            progress = (processed_frames / total_segments * 100) if total_segments > 0 else 0
+                            # 写入进度到文件
+                            with open(progress_file, 'w') as f:
+                                f.write(f"{progress:.2f}")
+                elif fd == process.stderr.fileno():
+                    line = process.stderr.readline()
+                    if line:
+                        logger.info(f"stderr: {line.strip()}")
+            
+            # 检查进程是否结束
+            if process.poll() is not None:
                 break
-                
-            if "frame=" in line and "fps=" in line:
-                processed_frames += 1
-                # 计算进度百分比
-                progress = (processed_frames / total_segments * 100) if total_segments > 0 else 0
-                # 写入进度到文件
-                with open(progress_file, 'w') as f:
-                    f.write(f"{progress:.2f}")
-                
-            logger.info(line.strip())
+        
+        # 读取剩余输出
+        stdout, stderr = process.communicate()
+        if stdout:
+            logger.info(f"剩余 stdout: {stdout}")
+        if stderr:
+            logger.info(f"剩余 stderr: {stderr}")
             
         if process.returncode == 0:
             logger.info(f"成功将 {input_url} 转换为 {output_file}")
+            # 设置最终进度为 100%
+            with open(progress_file, 'w') as f:
+                f.write("100.00")
         else:
             logger.error("ffmpeg 命令执行失败")
             
