@@ -559,20 +559,20 @@ def check_progress():
                         download_status['status'] = 'confirmed'
                         if download_status['process']:
                             download_status['process'] = None
-                        # 删除进度文件
-                        try:
-                            os.remove(progress_file)
-                        except:
-                            pass
+                        # # 删除进度文件
+                        # try:
+                        #     os.remove(progress_file)
+                        # except:
+                        #     pass
                     elif progress_data['status'] == 'failed':
                         if download_status['process']:
                             download_status['process'] = None
                         # 删除进度文件
-                        try:
-                            os.remove(progress_file)
-                        except:
-                            pass
-                            
+                        # try:
+                        #     os.remove(progress_file)
+                        # except:
+                        #     pass
+                        #
             except Exception as e:
                 logger.error(f"读取进度文件失败: {str(e)}")
                 if download_status['process'] and download_status['process'].poll() is None:
