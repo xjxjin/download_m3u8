@@ -56,13 +56,39 @@ logger = setup_logger()
 
 
 def get_total_segments(m3u8_url):
-    """获取m3u8文件中的总片段数"""
+    """获取m3u8文件中的总片段数，包括处理嵌套的m3u8文件"""
     try:
         import m3u8
         playlist = m3u8.load(m3u8_url)
-        return len(playlist.segments)
+        
+        # 如果是主播放列表（包含子播放列表）
+        if playlist.is_endlist and playlist.playlists:
+            logger.info("检测到主播放列表，获取子播放列表")
+            # 获取第一个子播放列表的URI
+            sub_playlist_uri = playlist.playlists[0].uri
+            
+            # 如果子播放列表URI是相对路径，需要构建完整URL
+            if not sub_playlist_uri.startswith('http'):
+                from urllib.parse import urljoin
+                sub_playlist_uri = urljoin(m3u8_url, sub_playlist_uri)
+            
+            logger.info(f"加载子播放列表: {sub_playlist_uri}")
+            # 递归获取子播放列表的片段数
+            return get_total_segments(sub_playlist_uri)
+        
+        # 如果是包含具体片段的播放列表
+        if playlist.segments:
+            segment_count = len(playlist.segments)
+            logger.info(f"找到 {segment_count} 个媒体片段")
+            return segment_count
+            
+        logger.warning("未找到媒体片段")
+        return 0
+        
     except Exception as e:
         logger.error(f"获取片段数失败: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return 0
 
 
