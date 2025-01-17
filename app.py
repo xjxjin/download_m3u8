@@ -92,7 +92,7 @@ def get_m3u8_url(web_url):
                 ):
                     url = log['params']['request']['url']
                     # 确保 m3u8 链接以 http 开头
-                    if url.startswith('http') and url.endswith('m3u8'):
+                    if url.startswith('http') and '.m3u8' in url:
                         logger.info(f"捕获到M3U8链接: {url}")
                         m3u8_urls.append(url)
             except Exception as e:
