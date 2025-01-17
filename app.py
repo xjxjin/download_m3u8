@@ -321,18 +321,9 @@ def download_worker(m3u8_url, video_title):
         
         download_status['process'] = process
         
-        # 等待进程完成
-        stdout, stderr = process.communicate()
+        # 不再等待进程完成，让它在后台运行
+        # stdout, stderr = process.communicate()
         
-        if process.returncode == 0:
-            download_status['status'] = 'completed'
-            download_status['progress'] = 100
-            logger.info("下载完成")
-        else:
-            download_status['status'] = 'failed'
-            download_status['error'] = stderr.decode('utf-8')
-            logger.error(f"下载失败: {stderr.decode('utf-8')}")
-            
     except Exception as e:
         download_status['status'] = 'failed'
         download_status['error'] = str(e)
@@ -513,33 +504,45 @@ def delete_file():
 def check_progress():
     """检查下载进度"""
     try:
-        # 如果进程存在且正在运行，尝试从文件读取进度
-        if (download_status['status'] == 'downloading' and 
-            download_status['process'] and 
-            download_status['process'].poll() is None):
+        progress_file = os.path.join(output_dir, 'download_progress.json')
+        
+        # 检查进程状态
+        if download_status['process']:
+            returncode = download_status['process'].poll()
             
-            progress_file = os.path.join(output_dir, 'download_progress.json')
-            if os.path.exists(progress_file):
-                try:
-                    with open(progress_file, 'r') as f:
-                        progress_data = json.load(f)
-                        
-                        # 更新全局状态
-                        download_status.update(progress_data)
-                        
-                        # 如果状态为完成或失败，清理进程
-                        if progress_data['status'] in ['completed', 'failed']:
+            # 如果进程已结束且不是正常退出
+            if returncode is not None and returncode != 0:
+                download_status['status'] = 'failed'
+                download_status['error'] = "下载进程异常退出"
+                download_status['process'] = None
+                return jsonify({
+                    'success': True,
+                    'status': 'failed',
+                    'error': "下载进程异常退出"
+                })
+        
+        # 读取进度文件
+        if os.path.exists(progress_file):
+            try:
+                with open(progress_file, 'r') as f:
+                    progress_data = json.load(f)
+                    
+                    # 更新全局状态
+                    download_status.update(progress_data)
+                    
+                    # 如果状态为完成或失败，清理进程
+                    if progress_data['status'] in ['completed', 'failed']:
+                        if download_status['process']:
                             download_status['process'] = None
-                            
+                        
                         # 删除进度文件
-                        if progress_data['status'] != 'downloading':
-                            try:
-                                os.remove(progress_file)
-                            except:
-                                pass
-                except Exception as e:
-                    logger.error(f"读取进度文件失败: {str(e)}")
-            
+                        try:
+                            os.remove(progress_file)
+                        except:
+                            pass
+            except Exception as e:
+                logger.error(f"读取进度文件失败: {str(e)}")
+        
         # 返回当前状态
         return jsonify({
             'success': True,

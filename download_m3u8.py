@@ -22,6 +22,11 @@ progress_file = os.path.join(output_dir, 'download_progress.json')
 def setup_logger():
     """配置日志记录器"""
     logger = logging.getLogger('m3u8_downloader')
+    
+    # 如果logger已经有处理器，说明已经配置过，直接返回
+    if logger.handlers:
+        return logger
+        
     logger.setLevel(logging.INFO)
 
     # 创建日志目录
