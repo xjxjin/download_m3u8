@@ -22,7 +22,7 @@ version: '3.8'
 
 services:
   m3u8-downloader:
-    image: xjxjin/download_m3u8:latest
+    image: xjxjin/download_m3u8:1.0.1
     container_name: m3u8-downloader
     restart: unless-stopped
     ports:
@@ -33,11 +33,7 @@ services:
       - OUTPUT_DIR=/app/output
       - TZ=Asia/Shanghai
 ```
-
-
-
-
-3访问应用：
+3. 访问应用：
 打开浏览器访问 `http://localhost:5020`
 
 ### 目录结构
