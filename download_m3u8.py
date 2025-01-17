@@ -5,7 +5,11 @@ import datetime
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-output_dir = os.getenv("OUTPUT_DIR", "downloaded_segments")
+# 设置默认输出目录
+output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
+
+# 确保输出目录存在
+os.makedirs(output_dir, exist_ok=True)
 
 
 def setup_logger():

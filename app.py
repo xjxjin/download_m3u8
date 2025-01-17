@@ -159,11 +159,26 @@ def execute():
 
 @app.route('/list_files')
 def list_files():
-    path = request.args.get('path', output_dir)
+    # 获取路径参数，如果为空则使用默认输出目录
+    path = request.args.get('path')
+    if not path:
+        path = output_dir
+        logger.info(f"使用默认输出目录: {path}")
+    
     logger.info(f"列出目录内容: {path}")
-    if not os.path.exists(path):
-        logger.warning(f"路径不存在: {path}")
-        return jsonify({'success': False, 'error': 'Path does not exist'})
+    
+    # 确保目录存在
+    try:
+        # 检查路径是否为空或无效
+        if not path or not path.strip():
+            logger.error("无效的路径参数")
+            return jsonify({'success': False, 'error': '无效的路径参数'})
+        
+        # 创建目录
+        os.makedirs(path, exist_ok=True)
+    except Exception as e:
+        logger.error(f"创建目录失败: {str(e)}")
+        return jsonify({'success': False, 'error': f'创建目录失败: {str(e)}'})
     
     try:
         files = []

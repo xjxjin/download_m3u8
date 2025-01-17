@@ -64,6 +64,10 @@ RUN pip install --no-cache-dir \
     selenium \
     webdriver-manager
 
+# 创建必要的目录
+RUN mkdir -p /app/downloaded_m3u8 && \
+    chmod 777 /app/downloaded_m3u8
+
 # 暴露端口
 EXPOSE 5020
 
