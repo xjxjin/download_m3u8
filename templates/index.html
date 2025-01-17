@@ -1,0 +1,236 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>M3U8下载器</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .file-list {
+            margin-top: 20px;
+        }
+        .file-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+        #progress {
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>M3U8下载器</h1>
+    
+    <div class="input-group">
+        <label for="web-url">网页URL：</label>
+        <input type="text" id="web-url" placeholder="输入网页URL">
+    </div>
+    
+    <div class="input-group">
+        <label for="m3u8-url">M3U8 URL：</label>
+        <input type="text" id="m3u8-url" placeholder="输入M3U8 URL">
+    </div>
+    
+    <div class="button-group">
+        <button onclick="getM3U8()">获取M3U8 URL</button>
+        <button onclick="execute()">立即执行</button>
+        <button onclick="listFiles()">查看文件</button>
+    </div>
+    
+    <div id="progress">
+        <p>正在处理中...</p>
+    </div>
+    
+    <div id="file-list" class="file-list"></div>
+
+    <script>
+        async function getM3U8() {
+            const webUrl = document.getElementById('web-url').value;
+            if (!webUrl) {
+                alert('请输入网页URL');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/get_m3u8', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ web_url: webUrl })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('m3u8-url').value = data.m3u8_url;
+                } else {
+                    alert('获取M3U8 URL失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error);
+            }
+        }
+
+        async function execute() {
+            const m3u8Url = document.getElementById('m3u8-url').value;
+            if (!m3u8Url) {
+                alert('请输入M3U8 URL');
+                return;
+            }
+            
+            document.getElementById('progress').style.display = 'block';
+            
+            try {
+                const response = await fetch('/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ m3u8_url: m3u8Url })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('执行成功');
+                    listFiles();
+                } else {
+                    alert('执行失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error);
+            } finally {
+                document.getElementById('progress').style.display = 'none';
+            }
+        }
+
+        async function listFiles(path = '') {
+            try {
+                const response = await fetch(`/list_files?path=${path}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const fileList = document.getElementById('file-list');
+                    fileList.innerHTML = '';
+                    
+                    data.files.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
+                        
+                        const fileName = document.createElement('span');
+                        fileName.textContent = file.name;
+                        if (file.is_dir) {
+                            fileName.style.cursor = 'pointer';
+                            fileName.onclick = () => listFiles(file.path);
+                        }
+                        
+                        const actions = document.createElement('div');
+                        actions.className = 'file-actions';
+                        
+                        if (!file.is_dir) {
+                            const downloadBtn = document.createElement('button');
+                            downloadBtn.textContent = '下载';
+                            downloadBtn.onclick = () => window.location.href = `/download/${file.path}`;
+                            actions.appendChild(downloadBtn);
+                        }
+                        
+                        const renameBtn = document.createElement('button');
+                        renameBtn.textContent = '重命名';
+                        renameBtn.onclick = () => renameFile(file.path);
+                        
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = '删除';
+                        deleteBtn.onclick = () => deleteFile(file.path);
+                        
+                        actions.appendChild(renameBtn);
+                        actions.appendChild(deleteBtn);
+                        
+                        fileItem.appendChild(fileName);
+                        fileItem.appendChild(actions);
+                        fileList.appendChild(fileItem);
+                    });
+                } else {
+                    alert('获取文件列表失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error);
+            }
+        }
+
+        async function renameFile(oldPath) {
+            const newName = prompt('请输入新的文件名：');
+            if (!newName) return;
+            
+            try {
+                const response = await fetch('/rename', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        old_path: oldPath,
+                        new_name: newName
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    listFiles();
+                } else {
+                    alert('重命名失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error);
+            }
+        }
+
+        async function deleteFile(filepath) {
+            if (!confirm('确定要删除这个文件吗？')) return;
+            
+            try {
+                const response = await fetch('/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ filepath })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    listFiles();
+                } else {
+                    alert('删除失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error);
+            }
+        }
+    </script>
+</body>
+</html>
