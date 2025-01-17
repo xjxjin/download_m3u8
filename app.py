@@ -10,6 +10,7 @@ from selenium.webdriver.chrome.service import Service
 import time
 import subprocess
 import shutil
+import datetime
 # import logging
 # from logging.handlers import TimedRotatingFileHandler
 # from datetime import datetime
@@ -23,7 +24,7 @@ from download_m3u8 import output_dir, setup_logger
 logger = setup_logger()
 
 def get_m3u8_url(web_url):
-    """使用Selenium模拟手机访问并获取m3u8链接"""
+    """使用Selenium模拟手机访问并获取m3u8链接和视频名称"""
     logger.info(f"开始处理URL: {web_url}")
     chrome_options = Options()
     
@@ -96,10 +97,23 @@ def get_m3u8_url(web_url):
                 logger.error(f"解析日志时出错: {str(e)}")
                 continue
         
-        # 如果找到了m3u8链接，返回第一个
+        # 如果找到了m3u8链接，尝试获取视频标题
+        video_title = ""
+        try:
+            # 获取页面标题作为视频名称
+            video_title = driver.title
+            # 清理标题中的特殊字符
+            import re
+            video_title = re.sub(r'[\\/:*?"<>|]', '_', video_title)
+            logger.info(f"获取到视频标题: {video_title}")
+        except Exception as e:
+            logger.error(f"获取视频标题失败: {str(e)}")
+            video_title = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        
+        # 如果找到了m3u8链接，返回链接和标题
         if m3u8_urls:
             logger.info(f"成功找到M3U8链接: {m3u8_urls[0]}")
-            return m3u8_urls[0]
+            return {'url': m3u8_urls[0], 'title': video_title}
         
         logger.warning("未找到M3U8链接")
         return None
@@ -131,10 +145,14 @@ def get_m3u8():
     logger.info(f"收到请求，URL: {web_url}")
     
     try:
-        m3u8_url = get_m3u8_url(web_url)
-        if not m3u8_url:
+        result = get_m3u8_url(web_url)
+        if not result:
             return jsonify({'success': False, 'error': '未找到M3U8链接'})
-        return jsonify({'success': True, 'm3u8_url': m3u8_url})
+        return jsonify({
+            'success': True, 
+            'm3u8_url': result['url'],
+            'video_title': result['title']
+        })
     except Exception as e:
         error_msg = str(e)
         logger.error(f"获取M3U8错误: {error_msg}")
@@ -143,14 +161,21 @@ def get_m3u8():
 @app.route('/execute', methods=['POST'])
 def execute():
     m3u8_url = request.json.get('m3u8_url')
+    video_title = request.json.get('video_title', '')
+    
     if not m3u8_url:
         logger.warning("未提供M3U8 URL")
         return jsonify({'success': False, 'error': 'M3U8 URL is required'})
     
     try:
         logger.info(f"开始下载M3U8: {m3u8_url}")
+        logger.info(f"视频标题: {video_title}")
+        
+        # 设置环境变量
         os.environ['M3U8_URL'] = m3u8_url
-        subprocess  .run(['python', 'download_m3u8.py'], check=True)
+        os.environ['VIDEO_TITLE'] = video_title
+        
+        subprocess.run(['python', 'download_m3u8.py'], check=True)
         logger.info("下载完成")
         return jsonify({'success': True})
     except Exception as e:
@@ -184,13 +209,40 @@ def list_files():
         files = []
         for item in os.listdir(path):
             item_path = os.path.join(path, item)
+            stats = os.stat(item_path)
+            
+            # 获取文件类型
+            file_type = '文件夹' if os.path.isdir(item_path) else '文件'
+            
+            # 获取文件大小
+            size = stats.st_size
+            if size < 1024:
+                size_str = f"{size} B"
+            elif size < 1024 * 1024:
+                size_str = f"{size/1024:.2f} KB"
+            elif size < 1024 * 1024 * 1024:
+                size_str = f"{size/(1024*1024):.2f} MB"
+            else:
+                size_str = f"{size/(1024*1024*1024):.2f} GB"
+            
             files.append({
                 'name': item,
                 'path': item_path,
                 'is_dir': os.path.isdir(item_path),
-                'size': os.path.getsize(item_path) if os.path.isfile(item_path) else 0
+                'type': file_type,
+                'size': size_str,
+                'created_time': datetime.datetime.fromtimestamp(stats.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
+                'modified_time': datetime.datetime.fromtimestamp(stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
             })
-        return jsonify({'success': True, 'files': files})
+            
+        # 按修改时间倒序排序
+        files.sort(key=lambda x: os.path.getmtime(x['path']), reverse=True)
+        
+        return jsonify({
+            'success': True, 
+            'current_path': os.path.abspath(path),
+            'files': files
+        })
     except Exception as e:
         logger.error(f"列出文件失败: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})

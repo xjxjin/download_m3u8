@@ -76,13 +76,21 @@ def execute_ffmpeg(input_url, output_file):
 
 
 if __name__ == "__main__":
-    # 从环境变量获取 m3u8_url 和 output_dir
+    # 从环境变量获取 m3u8_url 和 video_title
     m3u8_url = os.getenv("M3U8_URL")
+    video_title = os.getenv("VIDEO_TITLE", "")
+    
     if not m3u8_url:
         logger.error("请设置环境变量 M3U8_URL")
         sys.exit(1)
+    
+    # 生成输出文件名
     nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    output_file = f"{output_dir}/merged_video_{nowtime}.mp4"
+    if video_title:
+        output_file = f"{output_dir}/{video_title}_{nowtime}.mp4"
+    else:
+        output_file = f"{output_dir}/merged_video_{nowtime}.mp4"
+    
     logger.info(f"output_dir: {output_dir}")
     logger.info(f"output_file: {output_file}")
     execute_ffmpeg(m3u8_url, output_file)
