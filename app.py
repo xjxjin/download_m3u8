@@ -13,6 +13,7 @@ import shutil
 import datetime
 import threading
 from queue import Queue
+import json
 
 # import logging
 # from logging.handlers import TimedRotatingFileHandler
@@ -514,21 +515,32 @@ def delete_file():
 def check_progress():
     """检查下载进度"""
     try:
-        # 如果进程存在且正在运行，尝试更新进度
+        # 如果进程存在且正在运行，尝试从文件读取进度
         if (download_status['status'] == 'downloading' and 
             download_status['process'] and 
             download_status['process'].poll() is None):
             
-            # 这里可以添加从 download_m3u8.py 获取实际进度的逻辑
-            # 目前仅返回状态
-            return jsonify({
-                'success': True,
-                'progress': download_status['progress'],
-                'current_segments': download_status['current_segments'],
-                'total_segments': download_status['total_segments'],
-                'status': download_status['status'],
-                'error': download_status['error']
-            })
+            progress_file = os.path.join(output_dir, 'download_progress.json')
+            if os.path.exists(progress_file):
+                try:
+                    with open(progress_file, 'r') as f:
+                        progress_data = json.load(f)
+                        
+                        # 更新全局状态
+                        download_status.update(progress_data)
+                        
+                        # 如果状态为完成或失败，清理进程
+                        if progress_data['status'] in ['completed', 'failed']:
+                            download_status['process'] = None
+                            
+                        # 删除进度文件
+                        if progress_data['status'] != 'downloading':
+                            try:
+                                os.remove(progress_file)
+                            except:
+                                pass
+                except Exception as e:
+                    logger.error(f"读取进度文件失败: {str(e)}")
             
         # 返回当前状态
         return jsonify({

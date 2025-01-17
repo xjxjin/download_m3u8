@@ -7,6 +7,7 @@ import requests
 import re
 from logging.handlers import TimedRotatingFileHandler
 from urllib.parse import urljoin
+import json
 
 # 设置默认输出目录
 output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
@@ -15,6 +16,8 @@ output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
 os.makedirs(output_dir, exist_ok=True)
 os.makedirs(f"{output_dir}/videos", exist_ok=True)
 
+# 添加进度文件路径
+progress_file = os.path.join(output_dir, 'download_progress.json')
 
 def setup_logger():
     """配置日志记录器"""
@@ -90,6 +93,21 @@ def get_total_segments(m3u8_url):
         return 0
 
 
+def update_progress(progress, current_segments=None, total_segments=None, status='downloading', error=None):
+    """更新下载进度"""
+    try:
+        progress_data = {
+            'progress': progress,
+            'current_segments': current_segments,
+            'total_segments': total_segments,
+            'status': status,
+            'error': error
+        }
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+    except Exception as e:
+        logger.error(f"更新进度失败: {str(e)}")
+
 
 def execute_ffmpeg(m3u8_url, output_file):
     """使用ffmpeg下载并合并视频片段"""
@@ -98,6 +116,7 @@ def execute_ffmpeg(m3u8_url, output_file):
         total_segments = get_total_segments(m3u8_url)
         if total_segments > 0:
             logger.info(f"预计总片段数: {total_segments}")
+            update_progress(0, 0, total_segments)
 
         # 准备ffmpeg命令
         command = [
@@ -118,7 +137,7 @@ def execute_ffmpeg(m3u8_url, output_file):
 
         # 初始化计数器
         frame_count = 0
-        processed_lines = set()  # 用于存储已处理的行，避免重复计数
+        processed_lines = set()
 
         # 实时读取输出
         while True:
@@ -128,15 +147,19 @@ def execute_ffmpeg(m3u8_url, output_file):
 
             if line:
                 logger.info(line)
-                # 检查是否包含frame且该行未被处理过
                 if 'hls @' in line and line not in processed_lines:
                     frame_count += 1
                     processed_lines.add(line)
                     logger.info(f"总片数：{total_segments}  已完成数：{frame_count}")
 
-                    # 如果知道总片段数，计算进度百分比
+                    # 更新进度
                     if total_segments > 0:
                         progress = min(100, (frame_count / total_segments) * 100)
+                        update_progress(
+                            progress=progress,
+                            current_segments=frame_count,
+                            total_segments=total_segments
+                        )
                         logger.info(f"下载进度: {progress:.2f}% ({frame_count}/{total_segments})")
                     else:
                         logger.info(f"已下载片段: {frame_count}")
@@ -147,13 +170,16 @@ def execute_ffmpeg(m3u8_url, output_file):
         if process.returncode == 0:
             logger.info(f"下载完成: {output_file}")
             logger.info(f"总共处理片段: {frame_count}")
+            update_progress(100, frame_count, total_segments, status='completed')
             return True
         else:
             logger.error("下载失败")
+            update_progress(0, frame_count, total_segments, status='failed', error="FFmpeg 执行失败")
             return False
 
     except Exception as e:
         logger.error(f"执行出错: {str(e)}")
+        update_progress(0, 0, total_segments, status='failed', error=str(e))
         return False
 
 
