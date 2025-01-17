@@ -81,6 +81,11 @@
         <label for="m3u8-url">M3U8 URL：</label>
         <input type="text" id="m3u8-url" placeholder="输入M3U8 URL">
     </div>
+
+    <div class="input-group">
+        <label for="video-title">视频标题：</label>
+        <input type="text" id="video-title" placeholder="输入视频标题">
+    </div>
     
     <div class="button-group">
         <button onclick="getM3U8()">获取M3U8 URL</button>
@@ -137,6 +142,7 @@
                 const data = await response.json();
                 if (data.success) {
                     document.getElementById('m3u8-url').value = data.m3u8_url;
+                    document.getElementById('video-title').value = data.video_title;
                 } else {
                     alert('获取M3U8 URL失败: ' + data.error);
                 }
@@ -148,6 +154,8 @@
         // 执行下载
         async function execute() {
             const m3u8Url = document.getElementById('m3u8-url').value;
+            const videoTitle = document.getElementById('video-title').value || '';
+            
             if (!m3u8Url) {
                 alert('请输入M3U8 URL');
                 return;
@@ -161,7 +169,10 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ m3u8_url: m3u8Url })
+                    body: JSON.stringify({ 
+                        m3u8_url: m3u8Url,
+                        video_title: videoTitle
+                    })
                 });
                 
                 const data = await response.json();
