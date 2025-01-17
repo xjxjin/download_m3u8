@@ -84,7 +84,6 @@ def get_m3u8_url(web_url):
             # 尝试使用缓存的 ChromeDriver
             cache_path = os.path.join(os.path.expanduser("~"), ".wdm", "drivers.json")
             if os.path.exists(cache_path):
-                import json
                 try:
                     with open(cache_path, 'r') as f:
                         cache = json.load(f)
@@ -154,12 +153,12 @@ def get_m3u8_url(web_url):
             m3u8_urls = []
             for entry in logs:
                 try:
-                    log = json.loads(entry['message'])['message']
+                    log_data = json.loads(entry['message'])['message']
                     if (
-                            'Network.requestWillBeSent' in log['method']
-                            and 'm3u8' in log['params']['request']['url'].lower()
+                            'Network.requestWillBeSent' in log_data['method']
+                            and 'm3u8' in log_data['params']['request']['url'].lower()
                     ):
-                        url = log['params']['request']['url']
+                        url = log_data['params']['request']['url']
                         if url.startswith('http') and '.m3u8' in url:
                             logger.info(f"捕获到M3U8链接: {url}")
                             m3u8_urls.append(url)
