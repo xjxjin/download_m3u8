@@ -131,6 +131,7 @@ def execute_ffmpeg(input_url, output_file):
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            bufsize=1,  # 行缓冲
             universal_newlines=True
         )
         
