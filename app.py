@@ -13,8 +13,41 @@ from queue import Queue
 import json
 import logging
 import requests.exceptions
+from logging import Formatter
+from flask.logging import default_handler
+import logging.config
 
 app = Flask(__name__)
+
+# 配置 Flask 的日志格式
+class RequestFormatter(Formatter):
+    def format(self, record):
+        if hasattr(record, 'request'):
+            record.request_log = f'{record.request.remote_addr} - - [{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] "{record.request.method} {record.request.full_path} {record.request.environ.get("SERVER_PROTOCOL")}"'
+        else:
+            record.request_log = ''
+        return super().format(record)
+
+# 配置 Werkzeug 日志
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.setLevel(logging.INFO)
+werkzeug_handler = logging.StreamHandler()
+werkzeug_handler.setFormatter(
+    Formatter('%(asctime)s - %(name)s - %(message)s', 
+             datefmt='%Y-%m-%d %H:%M:%S')
+)
+werkzeug_logger.addHandler(werkzeug_handler)
+
+# 禁用 Werkzeug 的默认日志
+werkzeug_logger.disabled = True
+
+# 配置 Flask 的请求日志
+@app.before_request
+def log_request_info():
+    logger.info(f'{request.remote_addr} - "{request.method} {request.full_path}"')
+
+formatter = RequestFormatter('%(request_log)s %(message)s')
+default_handler.setFormatter(formatter)
 
 # 获取download_m3u8.py中定义的output_dir
 from download_m3u8 import output_dir, setup_logger

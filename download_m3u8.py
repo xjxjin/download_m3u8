@@ -33,15 +33,19 @@ def setup_logger():
     log_dir = os.path.join(output_dir, 'logs')
     os.makedirs(log_dir, exist_ok=True)
 
+    # 设置日志格式
+    log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', 
+                                 datefmt='%Y-%m-%d %H:%M:%S')
+
     # 文件处理器
     log_file = os.path.join(log_dir, 'downloader.log')
     file_handler = TimedRotatingFileHandler(log_file, when='midnight', interval=1, backupCount=7)
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    file_handler.setFormatter(log_format)
     logger.addHandler(file_handler)
 
     # 控制台处理器
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    console_handler.setFormatter(log_format)
     logger.addHandler(console_handler)
 
     return logger
