@@ -1,12 +1,9 @@
 # app.py
 from flask import Flask, render_template, request, jsonify, send_file
 import os
-# import requests
-# import json
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-# from selenium.webdriver.common.by import By
 import time
 import subprocess
 import shutil
@@ -14,10 +11,8 @@ import datetime
 import threading
 from queue import Queue
 import json
-
-# import logging
-# from logging.handlers import TimedRotatingFileHandler
-# from datetime import datetime
+import logging
+import requests.exceptions
 
 app = Flask(__name__)
 
@@ -42,6 +37,8 @@ def get_m3u8_url(web_url):
     """使用Selenium模拟手机访问并获取m3u8链接和视频名称"""
     logger.info(f"开始处理URL: {web_url}")
     chrome_options = Options()
+    chrome_bin = None
+    chromedriver_path = None
 
     # Docker 环境特定设置
     chrome_options.add_argument('--no-sandbox')
@@ -70,8 +67,6 @@ def get_m3u8_url(web_url):
         # 本地环境自动检测浏览器
         try:
             from webdriver_manager.chrome import ChromeDriverManager
-            from selenium.webdriver.chrome.service import Service
-            import requests.exceptions
 
             # 尝试查找本地 Chrome 或 Chromium
             if os.path.exists('/usr/bin/google-chrome'):
@@ -103,7 +98,7 @@ def get_m3u8_url(web_url):
                     logger.warning(f"读取缓存失败: {str(e)}")
 
             # 如果没有找到缓存的驱动，尝试下载
-            if not locals().get('chromedriver_path'):
+            if not chromedriver_path:
                 try:
                     chromedriver_path = ChromeDriverManager().install()
                     logger.info(f"下载新的ChromeDriver: {chromedriver_path}")
@@ -117,6 +112,10 @@ def get_m3u8_url(web_url):
         except Exception as e:
             logger.error(f"本地环境配置失败: {str(e)}")
             raise Exception(f"浏览器配置失败: {str(e)}")
+
+    # 确保 chromedriver_path 已设置
+    if not chromedriver_path:
+        raise Exception("ChromeDriver 路径未设置")
 
     logger.info(f"使用浏览器: {chrome_bin if chrome_bin else '系统默认'}")
     if chrome_bin:
