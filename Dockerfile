@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     gnupg2 \
     unzip \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 尝试安装 Google Chrome，如果失败则安装 Chromium
@@ -20,9 +21,10 @@ RUN set -ex; \
         apt-get update && \
         apt-get install -y google-chrome-stable && \
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | awk -F'.' '{print $1}') && \
-        wget -q "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$CHROME_VERSION.0.6261.94/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip && \
+        LATEST_DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION") && \
+        wget -q "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER_VERSION/chromedriver_linux64.zip" -O /tmp/chromedriver.zip && \
         unzip /tmp/chromedriver.zip -d /tmp/ && \
-        mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+        mv /tmp/chromedriver /usr/local/bin/chromedriver && \
         chmod +x /usr/local/bin/chromedriver && \
         rm -rf /tmp/chromedriver* && \
         echo "Chrome and ChromeDriver installed successfully"; \
@@ -32,7 +34,7 @@ RUN set -ex; \
         apt-get install -y chromium chromium-driver; \
     fi && \
     rm -rf /var/lib/apt/lists/* && \
-    apt-get purge -y wget unzip && \
+    apt-get purge -y wget unzip curl && \
     apt-get autoremove -y
 
 # 设置环境变量
