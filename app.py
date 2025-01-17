@@ -32,7 +32,20 @@ def get_m3u8_url(web_url):
     chrome_options.add_argument('--headless=new')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
-    chrome_options.binary_location = os.getenv('CHROME_BIN', '/usr/bin/google-chrome')
+    
+    # 尝试使用 Google Chrome，如果失败则使用 Chromium
+    chrome_bin = os.getenv('CHROME_BIN')
+    chromedriver_path = os.getenv('CHROMEDRIVER_PATH')
+    
+    if not os.path.exists(chrome_bin):
+        logger.info("Google Chrome 不存在，尝试使用 Chromium")
+        chrome_bin = os.getenv('CHROMIUM_BIN')
+        chromedriver_path = os.getenv('CHROMIUM_DRIVER_PATH')
+    
+    if not os.path.exists(chrome_bin):
+        raise Exception("未找到可用的浏览器")
+    
+    chrome_options.binary_location = chrome_bin
     
     # 启用性能日志
     chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
@@ -45,8 +58,9 @@ def get_m3u8_url(web_url):
     chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
     
     try:
-        # 在 Docker 中使用系统安装的 ChromeDriver
-        service = Service(os.getenv('CHROMEDRIVER_PATH', '/usr/bin/chromedriver'))
+        logger.info(f"使用浏览器: {chrome_bin}")
+        logger.info(f"使用驱动: {chromedriver_path}")
+        service = Service(chromedriver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
         # 启用性能日志

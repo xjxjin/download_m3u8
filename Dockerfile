@@ -48,14 +48,11 @@ RUN set -ex; \
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 
-# 根据安装的浏览器设置环境变量
-RUN if [ -f "/usr/bin/google-chrome" ]; then \
-        echo "export CHROME_BIN=/usr/bin/google-chrome" >> /etc/environment && \
-        echo "export CHROMEDRIVER_PATH=/usr/local/bin/chromedriver" >> /etc/environment; \
-    else \
-        echo "export CHROME_BIN=/usr/bin/chromium" >> /etc/environment && \
-        echo "export CHROMEDRIVER_PATH=/usr/bin/chromedriver" >> /etc/environment; \
-    fi
+# 设置浏览器环境变量
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+ENV CHROMIUM_BIN=/usr/bin/chromium
+ENV CHROMIUM_DRIVER_PATH=/usr/bin/chromedriver
 
 # 复制当前目录下的所有文件到工作目录
 COPY . /app
