@@ -31,7 +31,7 @@ def get_m3u8_url(web_url):
     chrome_options.add_argument('--headless=new')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
-    chrome_options.binary_location = os.getenv('CHROME_BIN', '/usr/bin/chromium')
+    chrome_options.binary_location = os.getenv('CHROME_BIN', '/usr/bin/google-chrome')
     
     # 启用性能日志
     chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
