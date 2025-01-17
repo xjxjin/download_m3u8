@@ -10,23 +10,34 @@
 ## 快速开始
 
 ### 使用 Docker Compose 运行
-1. 克隆项目：
+
+1. 创建下载目录：
 ```bash
-git clone https://github.com/xjxjin/download_m3u8.git
-cd downloader_m3u8
+mkdir -p /DATA/AppData/m3u8-downloader/output
 ```
 
-2. 创建下载目录：
+2. 克隆项目：
 ```bash
-mkdir -p downloads
+version: '3.8'
+
+services:
+  m3u8-downloader:
+    image: xjxjin/download_m3u8:latest
+    container_name: m3u8-downloader
+    restart: unless-stopped
+    ports:
+      - "5020:5020"
+    volumes:
+      - /DATA/AppData/m3u8-downloader/output:/app/output
+    environment:
+      - OUTPUT_DIR=/app/output
+      - TZ=Asia/Shanghai
 ```
 
-3. 启动服务：
-```bash
-docker-compose up -d
-```
 
-4. 访问应用：
+
+
+3访问应用：
 打开浏览器访问 `http://localhost:5020`
 
 ### 目录结构

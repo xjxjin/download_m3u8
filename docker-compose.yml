@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  m3u8-downloader:
+    image: xjxjin/download_m3u8:latest
+    container_name: m3u8-downloader
+    restart: unless-stopped
+    ports:
+      - "5020:5020"
+    volumes:
+      - /DATA/AppData/m3u8-downloader/output:/app/output
+    environment:
+      - OUTPUT_DIR=/app/output
+      - TZ=Asia/Shanghai
