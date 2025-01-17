@@ -65,11 +65,12 @@ def get_total_segments(m3u8_url):
         logger.error(f"获取片段数失败: {e}")
         return 0
 
+
 def execute_ffmpeg(input_url, output_file):
     # 获取总片段数
     total_segments = get_total_segments(input_url)
     logger.info(f"总片段数: {total_segments}")
-    
+
     # 构建 ffmpeg 命令
     command = [
         'ffmpeg',
@@ -78,7 +79,7 @@ def execute_ffmpeg(input_url, output_file):
         '-progress', 'pipe:1',  # 添加进度输出到 stdout
         output_file
     ]
-    
+
     try:
         # 执行 ffmpeg 命令并实时获取输出
         process = subprocess.Popen(
@@ -88,23 +89,23 @@ def execute_ffmpeg(input_url, output_file):
             bufsize=1,  # 行缓冲
             universal_newlines=True
         )
-        
+        logger.info(process)
         processed_frames = 0
         # 创建进度文件
         progress_file = os.path.join(output_dir, "progress.txt")
-        
+
         # 使用非阻塞方式读取输出
         import select
-        
+
         # 创建轮询对象
         poll = select.poll()
         poll.register(process.stdout, select.POLLIN)
         poll.register(process.stderr, select.POLLIN)
-        
+
         # 设置初始进度
         with open(progress_file, 'w') as f:
             f.write("0.00")
-        
+
         while True:
             # 检查是否有新的输出
             for fd, event in poll.poll(100):  # 100ms 超时
@@ -123,18 +124,18 @@ def execute_ffmpeg(input_url, output_file):
                     line = process.stderr.readline()
                     if line:
                         logger.info(f"stderr: {line.strip()}")
-            
+
             # 检查进程是否结束
             if process.poll() is not None:
                 break
-        
+
         # 读取剩余输出
         stdout, stderr = process.communicate()
         if stdout:
             logger.info(f"剩余 stdout: {stdout}")
         if stderr:
             logger.info(f"剩余 stderr: {stderr}")
-            
+
         if process.returncode == 0:
             logger.info(f"成功将 {input_url} 转换为 {output_file}")
             # 设置最终进度为 100%
@@ -142,7 +143,7 @@ def execute_ffmpeg(input_url, output_file):
                 f.write("100.00")
         else:
             logger.error("ffmpeg 命令执行失败")
-            
+
     except Exception as e:
         logger.error(f"发生了意外错误: {e}")
     finally:
