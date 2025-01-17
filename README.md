@@ -22,7 +22,7 @@ version: '3.8'
 
 services:
   m3u8-downloader:
-    image: xjxjin/download_m3u8:1.0.1
+    image: xjxjin/download_m3u8:1.0.2
     container_name: m3u8-downloader
     restart: unless-stopped
     ports:
