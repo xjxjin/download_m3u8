@@ -63,7 +63,7 @@ RUN pip install --no-cache-dir \
     requests \
     selenium \
     webdriver-manager \
-    m3u8
+    python-m3u8
 
 # 创建必要的目录
 RUN mkdir -p /app/downloaded_m3u8 && \
