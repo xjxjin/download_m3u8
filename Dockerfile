@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     gnupg2 \
     unzip \
     curl \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # 尝试安装 Google Chrome，如果失败则安装 Chromium
@@ -20,21 +21,27 @@ RUN set -ex; \
         echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && \
         apt-get update && \
         apt-get install -y google-chrome-stable && \
-        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | awk -F'.' '{print $1}') && \
-        LATEST_DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION") && \
-        wget -q "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER_VERSION/chromedriver_linux64.zip" -O /tmp/chromedriver.zip && \
-        unzip /tmp/chromedriver.zip -d /tmp/ && \
-        mv /tmp/chromedriver /usr/local/bin/chromedriver && \
-        chmod +x /usr/local/bin/chromedriver && \
-        rm -rf /tmp/chromedriver* && \
-        echo "Chrome and ChromeDriver installed successfully"; \
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | awk -F'.' '{print $1"."$2"."$3}') && \
+        DRIVER_URL=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json" | \
+            jq -r --arg ver "$CHROME_VERSION" '.versions[] | select(.version==$ver) | .downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
+        if [ -n "$DRIVER_URL" ]; then \
+            wget -q "$DRIVER_URL" -O /tmp/chromedriver.zip && \
+            unzip /tmp/chromedriver.zip -d /tmp/ && \
+            mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+            chmod +x /usr/local/bin/chromedriver && \
+            rm -rf /tmp/chromedriver* && \
+            echo "Chrome and ChromeDriver installed successfully"; \
+        else \
+            echo "ChromeDriver not found for version $CHROME_VERSION, installing Chromium instead" && \
+            apt-get install -y chromium chromium-driver; \
+        fi \
     else \
         echo "Architecture is not amd64, installing Chromium instead" && \
         apt-get update && \
         apt-get install -y chromium chromium-driver; \
     fi && \
     rm -rf /var/lib/apt/lists/* && \
-    apt-get purge -y wget unzip curl && \
+    apt-get purge -y wget unzip curl jq && \
     apt-get autoremove -y
 
 # 设置环境变量
