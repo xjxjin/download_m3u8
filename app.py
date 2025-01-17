@@ -1,17 +1,18 @@
 # app.py
 from flask import Flask, render_template, request, jsonify, send_file
 import os
-import requests
-import json
+# import requests
+# import json
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+# from selenium.webdriver.common.by import By
 import time
 import subprocess
 import shutil
-import logging
-from logging.handlers import TimedRotatingFileHandler
-from datetime import datetime
+# import logging
+# from logging.handlers import TimedRotatingFileHandler
+# from datetime import datetime
 
 app = Flask(__name__)
 
@@ -133,7 +134,7 @@ def execute():
     try:
         logger.info(f"开始下载M3U8: {m3u8_url}")
         os.environ['M3U8_URL'] = m3u8_url
-        subprocess.run(['python', 'download_m3u8.py'], check=True)
+        subprocess  .run(['python', 'download_m3u8.py'], check=True)
         logger.info("下载完成")
         return jsonify({'success': True})
     except Exception as e:
