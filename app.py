@@ -259,7 +259,7 @@ def download_file(filepath):
     logger.info(f"下载文件: {filepath}")
     try:
         # 移除路径中的重复 /app 前缀
-        if filepath.startswith('/app/'):
+        if filepath.startswith('app/'):
             filepath = filepath.replace('app/', '', 1)
             logger.info(f"下载文件1: {filepath}")
         return send_file(filepath, as_attachment=True)
