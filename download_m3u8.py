@@ -12,6 +12,8 @@ output_dir = os.getenv("OUTPUT_DIR", "downloaded_m3u8")
 # 确保输出目录存在
 os.makedirs(output_dir, exist_ok=True)
 
+# 定义全局变量用于跟踪当前进程
+current_process = None
 
 def setup_logger():
     """配置日志记录器"""
@@ -109,87 +111,46 @@ def execute_ffmpeg(input_url, output_file):
     # 获取总片段数
     total_segments = get_total_segments(input_url)
     logger.info(f"总片段数: {total_segments}")
+    
+    # 创建进度文件并设置初始进度
+    progress_file = os.path.join(output_dir, "progress.txt")
+    with open(progress_file, 'w') as f:
+        f.write("0.00")
 
     # 构建 ffmpeg 命令
     command = [
         'ffmpeg',
         '-i', input_url,
         '-c', 'copy',
-        '-progress', 'pipe:1',  # 添加进度输出到 stdout
         output_file
     ]
-
+    
     try:
-        # 执行 ffmpeg 命令并实时获取输出
+        # 使用 Popen 启动进程，但不等待它完成
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            bufsize=1,  # 行缓冲
             universal_newlines=True
         )
-        # logger.info(process)
-        processed_frames = 0
-        # 创建进度文件
-        progress_file = os.path.join(output_dir, "progress.txt")
-
-        # 使用非阻塞方式读取输出
-        import select
-
-        # 创建轮询对象
-        poll = select.poll()
-        poll.register(process.stdout, select.POLLIN)
-        poll.register(process.stderr, select.POLLIN)
-
-        # 设置初始进度
-        with open(progress_file, 'w') as f:
-            f.write("0.00")
-
-        while True:
-            # 检查是否有新的输出
-            for fd, event in poll.poll(100):  # 100ms 超时
-                if fd == process.stdout.fileno():
-                    line = process.stdout.readline()
-                    if line:
-                        logger.info(f"stdout: {line.strip()}")
-                        if "hls @ " in line:
-                            processed_frames += 1
-                            logger.info(f"总进度为:{total_segments}   当前进度为:{processed_frames}")
-                            # 计算进度百分比
-                            progress = (processed_frames / total_segments * 100) if total_segments > 0 else 0
-                            # 写入进度到文件
-                            with open(progress_file, 'w') as f:
-                                f.write(f"{progress:.2f}")
-                elif fd == process.stderr.fileno():
-                    line = process.stderr.readline()
-                    if line:
-                        logger.info(f"stderr: {line.strip()}")
-
-            # 检查进程是否结束
-            if process.poll() is not None:
-                break
-
-        # 读取剩余输出
-        stdout, stderr = process.communicate()
-        if stdout:
-            logger.info(f"剩余 stdout: {stdout}")
-        if stderr:
-            logger.info(f"剩余 stderr: {stderr}")
-
-        if process.returncode == 0:
-            logger.info(f"成功将 {input_url} 转换为 {output_file}")
-            # 设置最终进度为 100%
-            with open(progress_file, 'w') as f:
-                f.write("100.00")
-        else:
-            logger.error("ffmpeg 命令执行失败")
-
+        
+        # 将进程对象保存到全局变量，以便其他函数可以访问
+        global current_process
+        current_process = {
+            'process': process,
+            'total_segments': total_segments,
+            'processed_frames': 0,
+            'progress_file': progress_file,
+            'start_time': datetime.datetime.now()
+        }
+        
+        return True
+        
     except Exception as e:
         logger.error(f"发生了意外错误: {e}")
-    finally:
-        # 删除进度文件
         if os.path.exists(progress_file):
             os.remove(progress_file)
+        return False
 
 
 if __name__ == "__main__":

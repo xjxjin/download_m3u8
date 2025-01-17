@@ -19,7 +19,7 @@ import datetime
 app = Flask(__name__)
 
 # 获取download_m3u8.py中定义的output_dir
-from download_m3u8 import output_dir, setup_logger
+from download_m3u8 import output_dir, setup_logger, current_process, execute_ffmpeg
 
 # 使用相同的日志配置
 logger = setup_logger()
@@ -180,9 +180,20 @@ def execute():
         os.environ['M3U8_URL'] = m3u8_url
         os.environ['VIDEO_TITLE'] = video_title
 
-        subprocess.run(['python', 'download_m3u8.py'], check=True)
-        logger.info("下载完成")
-        return jsonify({'success': True})
+        # 生成输出文件名
+        nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        os.makedirs(f"{output_dir}/videos", exist_ok=True)
+        if video_title:
+            output_file = f"{output_dir}/videos/{video_title}_{nowtime}.mp4"
+        else:
+            output_file = f"{output_dir}/videos/merged_video_{nowtime}.mp4"
+
+        # 启动下载进程但不等待它完成
+        if execute_ffmpeg(m3u8_url, output_file):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': '启动下载失败'})
+            
     except Exception as e:
         logger.error(f"下载失败: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
@@ -325,12 +336,45 @@ def delete_file():
 @app.route('/get_progress')
 def get_progress():
     try:
-        progress_file = os.path.join(output_dir, "progress.txt")
+        if not current_process or not current_process.get('process'):
+            return jsonify({'success': True, 'progress': 0})
+            
+        process = current_process['process']
+        progress_file = current_process['progress_file']
+        total_segments = current_process['total_segments']
+        
+        # 检查进程是否还在运行
+        if process.poll() is not None:
+            # 进程已结束，检查是否成功
+            if process.returncode == 0:
+                # 成功完成
+                with open(progress_file, 'w') as f:
+                    f.write("100.00")
+                return jsonify({'success': True, 'progress': 100})
+            else:
+                # 进程失败
+                return jsonify({'success': False, 'error': '下载失败'})
+        
+        # 进程仍在运行，读取输出并更新进度
+        while True:
+            line = process.stderr.readline()
+            if not line:
+                break
+                
+            if "frame=" in line and "fps=" in line:
+                current_process['processed_frames'] += 1
+                progress = (current_process['processed_frames'] / total_segments * 100) if total_segments > 0 else 0
+                with open(progress_file, 'w') as f:
+                    f.write(f"{progress:.2f}")
+                    
+        # 读取当前进度
         if os.path.exists(progress_file):
             with open(progress_file, 'r') as f:
                 progress = float(f.read().strip())
             return jsonify({'success': True, 'progress': progress})
+            
         return jsonify({'success': True, 'progress': 0})
+        
     except Exception as e:
         logger.error(f"获取进度失败: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
