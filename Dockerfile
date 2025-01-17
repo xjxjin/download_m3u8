@@ -58,11 +58,7 @@ ENV CHROMIUM_DRIVER_PATH=/usr/bin/chromedriver
 COPY . /app
 
 # 安装 Python 依赖
-RUN pip install --no-cache-dir \
-    flask \
-    requests \
-    selenium \
-    webdriver-manager
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 创建必要的目录
 RUN mkdir -p /app/downloaded_m3u8 && \

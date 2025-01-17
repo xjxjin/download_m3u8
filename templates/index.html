@@ -67,32 +67,16 @@
         .table td a:hover {
             text-decoration: underline;
         }
-        .progress {
-            height: 20px;
-            margin-bottom: 20px;
-            background-color: #f5f5f5;
-            border-radius: 4px;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,.1);
-        }
-        
-        .progress-info {
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .progress-bar {
-            background-color: #007bff;
-        }
     </style>
 </head>
 <body>
     <h1>M3U8下载器</h1>
-    
+
     <div class="input-group">
         <label for="web-url">网页URL：</label>
         <input type="text" id="web-url" placeholder="输入网页URL">
     </div>
-    
+
     <div class="input-group">
         <label for="m3u8-url">M3U8 URL：</label>
         <input type="text" id="m3u8-url" placeholder="输入M3U8 URL">
@@ -102,28 +86,20 @@
         <label for="video-title">视频标题：</label>
         <input type="text" id="video-title" placeholder="输入视频标题">
     </div>
-    
+
     <div class="button-group">
         <button onclick="getM3U8()">获取M3U8 URL</button>
         <button onclick="execute()">立即执行</button>
         <button onclick="viewFiles()">查看文件</button>
     </div>
-    
+
     <div id="progress" style="display: none;">
-        <div class="progress-info mb-2">
-            <p class="mb-1">正在处理中...</p>
-            <div class="d-flex justify-content-between">
-                <span id="progress-text">0%</span>
-                <span id="segments-text">0/0 片段</span>
-            </div>
-        </div>
+        <p>正在处理中...</p>
         <div class="progress">
-            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-            </div>
+            <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
     </div>
-    
+
     <div class="container mt-4">
         <h3>文件列表</h3>
         <p>当前路径: <span id="current-path"></span></p>
@@ -156,7 +132,7 @@
                 alert('请输入网页URL');
                 return;
             }
-            
+
             try {
                 const response = await fetch('/get_m3u8', {
                     method: 'POST',
@@ -165,7 +141,7 @@
                     },
                     body: JSON.stringify({ web_url: webUrl })
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     document.getElementById('m3u8-url').value = data.m3u8_url;
@@ -178,92 +154,68 @@
             }
         }
 
-        // 添加进度检查函数
-        async function checkProgress() {
+        // 更新进度的函数
+        async function updateProgress() {
             try {
-                const response = await fetch('/check_progress');
+                const response = await fetch('/get_progress');
                 const data = await response.json();
                 
                 if (data.success) {
                     const progressBar = document.getElementById('progress-bar');
-                    const progressText = document.getElementById('progress-text');
-                    const segmentsText = document.getElementById('segments-text');
-                    
-                    // 更新进度条
-                    const progress = data.progress || 0;
+                    const progress = data.progress;
                     progressBar.style.width = `${progress}%`;
                     progressBar.setAttribute('aria-valuenow', progress);
+                    progressBar.textContent = `${progress.toFixed(1)}%`;
                     
-                    // 更新文本信息
-                    progressText.textContent = `${progress.toFixed(2)}%`;
-                    if (data.current_segments && data.total_segments) {
-                        segmentsText.textContent = `${data.current_segments}/${data.total_segments} 片段`;
-                    }
-                    
-                    // 如果下载完成
-                    if (data.status === 'completed') {
-                        clearInterval(window.progressInterval);
-                        document.getElementById('progress').style.display = 'none';
-                        alert('下载完成！');
-                        listFiles();  // 刷新文件列表
-                    }
-                    // 如果下载失败
-                    else if (data.status === 'failed') {
-                        clearInterval(window.progressInterval);
-                        document.getElementById('progress').style.display = 'none';
-                        alert('下载失败: ' + data.error);
+                    if (progress < 100) {
+                        setTimeout(updateProgress, 1000); // 每秒更新一次进度
                     }
                 }
             } catch (error) {
-                console.error('检查进度失败:', error);
+                console.error('获取进度失败:', error);
             }
         }
 
-        // 修改 execute 函数
+        // 执行下载
         async function execute() {
             const m3u8Url = document.getElementById('m3u8-url').value;
             const videoTitle = document.getElementById('video-title').value || '';
-            
+
             if (!m3u8Url) {
                 alert('请输入M3U8 URL');
                 return;
             }
-            
-            // 显示进度区域并重置进度条
-            const progressDiv = document.getElementById('progress');
-            const progressBar = document.getElementById('progress-bar');
-            progressDiv.style.display = 'block';
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', 0);
-            document.getElementById('progress-text').textContent = '0%';
-            document.getElementById('segments-text').textContent = '0/0 片段';
-            
+
+            document.getElementById('progress').style.display = 'block';
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-bar').textContent = '0%';
+
             try {
                 const response = await fetch('/execute', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         m3u8_url: m3u8Url,
                         video_title: videoTitle
                     })
                 });
-                
+
+                // 开始更新进度
+                updateProgress();
+
                 const data = await response.json();
                 if (data.success) {
-                    // 开始定期检查进度
-                    if (window.progressInterval) {
-                        clearInterval(window.progressInterval);
-                    }
-                    window.progressInterval = setInterval(checkProgress, 1000);
+                    alert('执行成功');
+                    listFiles();
                 } else {
-                    progressDiv.style.display = 'none';
                     alert('执行失败: ' + data.error);
                 }
             } catch (error) {
-                progressDiv.style.display = 'none';
                 alert('请求失败: ' + error);
+            } finally {
+                document.getElementById('progress').style.display = 'none';
             }
         }
 
@@ -272,15 +224,15 @@
             try {
                 const response = await fetch(`/list_files?path=${path}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // 更新当前路径
                     document.getElementById('current-path').textContent = data.current_path;
-                    
+
                     // 更新文件列表
                     const fileList = document.getElementById('file-list');
                     fileList.innerHTML = '';
-                    
+
                     // 如果不是根目录，添加返回上级目录的行
                     if (path && path !== output_dir) {
                         const parentPath = path.substring(0, path.lastIndexOf('/'));
@@ -293,14 +245,14 @@
                         `;
                         fileList.appendChild(row);
                     }
-                    
+
                     // 添加文件和文件夹
                     data.files.forEach(file => {
                         const row = document.createElement('tr');
-                        const fileName = file.is_dir ? 
-                            `<a href="javascript:void(0)" onclick="listFiles('${file.path}')">${file.name}/</a>` : 
+                        const fileName = file.is_dir ?
+                            `<a href="javascript:void(0)" onclick="listFiles('${file.path}')">${file.name}/</a>` :
                             file.name;
-                        
+
                         row.innerHTML = `
                             <td>${fileName}</td>
                             <td>${file.type}</td>
@@ -330,7 +282,7 @@
         async function renameFile(oldPath) {
             const newName = prompt('请输入新的文件名：');
             if (!newName) return;
-            
+
             try {
                 const response = await fetch('/rename', {
                     method: 'POST',
@@ -342,7 +294,7 @@
                         new_name: newName
                     })
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     listFiles();
@@ -357,7 +309,7 @@
         // 删除文件
         async function deleteFile(filepath) {
             if (!confirm('确定要删除这个文件吗？')) return;
-            
+
             try {
                 const response = await fetch('/delete', {
                     method: 'POST',
@@ -366,7 +318,7 @@
                     },
                     body: JSON.stringify({ filepath })
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     listFiles();
@@ -391,13 +343,6 @@
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
             listFiles();
-        });
-
-        // 页面卸载时清理定时器
-        window.addEventListener('beforeunload', function() {
-            if (window.progressInterval) {
-                clearInterval(window.progressInterval);
-            }
         });
     </script>
 </body>
