@@ -9,28 +9,44 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
     gnupg2 \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Google Chrome
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
+# 尝试安装 Google Chrome，如果失败则安装 Chromium
+RUN set -ex; \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && \
+        apt-get update && \
+        apt-get install -y google-chrome-stable && \
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | awk -F'.' '{print $1}') && \
+        wget -q "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$CHROME_VERSION.0.6261.94/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip && \
+        unzip /tmp/chromedriver.zip -d /tmp/ && \
+        mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+        chmod +x /usr/local/bin/chromedriver && \
+        rm -rf /tmp/chromedriver* && \
+        echo "Chrome and ChromeDriver installed successfully"; \
+    else \
+        echo "Architecture is not amd64, installing Chromium instead" && \
+        apt-get update && \
+        apt-get install -y chromium chromium-driver; \
+    fi && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get purge -y wget unzip && \
+    apt-get autoremove -y
 
-# 设置 Chrome 无头模式需要的环境变量
-ENV CHROME_BIN=/usr/bin/google-chrome
-ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV DISPLAY=:99
 
-# 安装 ChromeDriver
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | awk -F'.' '{print $1}') \
-    && wget -q "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$CHROME_VERSION.0.6261.94/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip \
-    && unzip /tmp/chromedriver.zip -d /tmp/ \
-    && mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
-    && chmod +x /usr/local/bin/chromedriver \
-    && rm -rf /tmp/chromedriver* \
-    && apt-get purge -y wget unzip \
-    && apt-get autoremove -y
+# 根据安装的浏览器设置环境变量
+RUN if [ -f "/usr/bin/google-chrome" ]; then \
+        echo "export CHROME_BIN=/usr/bin/google-chrome" >> /etc/environment && \
+        echo "export CHROMEDRIVER_PATH=/usr/local/bin/chromedriver" >> /etc/environment; \
+    else \
+        echo "export CHROME_BIN=/usr/bin/chromium" >> /etc/environment && \
+        echo "export CHROMEDRIVER_PATH=/usr/bin/chromedriver" >> /etc/environment; \
+    fi
 
 # 复制当前目录下的所有文件到工作目录
 COPY . /app
@@ -41,10 +57,6 @@ RUN pip install --no-cache-dir \
     requests \
     selenium \
     webdriver-manager
-
-# 设置环境变量
-ENV PYTHONUNBUFFERED=1
-ENV DISPLAY=:99
 
 # 暴露端口
 EXPOSE 5020
