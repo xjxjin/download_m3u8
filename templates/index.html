@@ -188,6 +188,7 @@
                     const progressBar = document.getElementById('progress-bar');
                     const progressText = document.getElementById('progress-text');
                     const segmentsText = document.getElementById('segments-text');
+                    const progressDiv = document.getElementById('progress');
 
                     // 更新进度条
                     const progress = data.progress || 0;
@@ -202,16 +203,25 @@
 
                     // 根据状态处理
                     switch(data.status) {
+                        case 'downloading':
+                            // 确保进度条可见
+                            progressDiv.style.display = 'block';
+                            break;
                         case 'completed':
                             clearInterval(window.progressInterval);
-                            document.getElementById('progress').style.display = 'none';
-                            alert('下载完成！');
-                            listFiles();  // 刷新文件列表
+                            setTimeout(() => {
+                                progressDiv.style.display = 'none';
+                                alert('下载完成！');
+                                listFiles();  // 刷新文件列表
+                            }, 1000);
                             break;
                         case 'failed':
                             clearInterval(window.progressInterval);
-                            document.getElementById('progress').style.display = 'none';
-                            alert('下载失败: ' + data.error);
+                            progressDiv.style.display = 'none';
+                            alert('下载失败: ' + (data.error || '未知错误'));
+                            break;
+                        case 'idle':
+                            // 如果状态是空闲，继续等待
                             break;
                     }
                 }
@@ -230,15 +240,6 @@
                 return;
             }
 
-            // 显示进度区域并重置进度条
-            const progressDiv = document.getElementById('progress');
-            const progressBar = document.getElementById('progress-bar');
-            progressDiv.style.display = 'block';
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', 0);
-            document.getElementById('progress-text').textContent = '0%';
-            document.getElementById('segments-text').textContent = '0/0 片段';
-
             try {
                 const response = await fetch('/execute', {
                     method: 'POST',
@@ -253,17 +254,24 @@
 
                 const data = await response.json();
                 if (data.success) {
+                    // 显示进度区域并重置进度条
+                    const progressDiv = document.getElementById('progress');
+                    const progressBar = document.getElementById('progress-bar');
+                    progressDiv.style.display = 'block';
+                    progressBar.style.width = '0%';
+                    progressBar.setAttribute('aria-valuenow', 0);
+                    document.getElementById('progress-text').textContent = '0%';
+                    document.getElementById('segments-text').textContent = '0/0 片段';
+
                     // 开始定期检查进度
                     if (window.progressInterval) {
                         clearInterval(window.progressInterval);
                     }
                     window.progressInterval = setInterval(checkProgress, 1000);
                 } else {
-                    progressDiv.style.display = 'none';
                     alert('执行失败: ' + data.error);
                 }
             } catch (error) {
-                progressDiv.style.display = 'none';
                 alert('请求失败: ' + error);
             }
         }
