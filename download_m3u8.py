@@ -85,6 +85,8 @@ if __name__ == "__main__":
     
     # 生成输出文件名
     nowtime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    # 确保输出目录存在
+    os.makedirs(f"{output_dir}/videos", exist_ok=True)
     if video_title:
         output_file = f"{output_dir}/videos/{video_title}_{nowtime}.mp4"
     else:
