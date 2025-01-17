@@ -64,8 +64,7 @@ RUN pip install --no-cache-dir \
     flask \
     requests \
     selenium \
-    webdriver-manager \
-    m3u8
+    webdriver-manager
 
 
 # 创建必要的目录
